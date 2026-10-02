@@ -1,5 +1,11 @@
 # Verification record
 
+## Render deployment preparation (2026-10-02)
+
+On Node 24.4.1, all 40 Node tests and `npm run check` passed.
+The added server test sends requests with Render's public hostname and checks HTTPS origin validation, asset delivery, API access, rejection of an unrelated hostname, and the health endpoint.
+The test uses a stub provider; live Gemini access was not tested.
+
 2026-10-02. Tested on Node 24.15.0 and headless Microsoft Edge on Windows.
 
 ## Domain and API

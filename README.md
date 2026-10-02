@@ -16,6 +16,20 @@ Run the command from the project root. On Windows PowerShell, use `npm.cmd start
 
 The server binds to loopback and rejects unrelated hostnames. This is a single-user local app, not an authenticated public service. Desktop and mobile layouts work in the browser; opening it from a separate phone requires a separately configured secure hosting setup. Do not expose this local server directly to the internet.
 
+## Deploy on Render
+
+Connect a Git repository containing this project to Render and create a Blueprint from [render.yaml](render.yaml).
+The Blueprint runs the tests and syntax checks, starts a Node web service on Render's free plan in Singapore, and checks `/health`.
+Render supplies the public URL and port; Pocket accepts that exact hostname over HTTPS and keeps the localhost development address working.
+Do not copy `.env` to Render.
+The deployed app runs without a Gemini key, so optional AI extraction and understanding stay off.
+
+Each browser keeps its own sample and personal workspaces in localStorage.
+Records from `127.0.0.1` do not automatically appear at the Render address; use Settings backup and restore if you want to move them.
+The Render URL is publicly reachable and Pocket has no user accounts or authentication.
+Use it only with data you are comfortable keeping in that browser, and do not add a shared `GEMINI_API_KEY` to a public service without access controls and usage limits.
+Render's free service may take time to respond after inactivity.
+
 ## What works
 
 - Overview: month selection, income, expenses, budget remainder, net cashflow, six-month charts, category allocation, recent transactions and goals.

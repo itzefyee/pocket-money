@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: pocket-money
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm test && npm run check
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.21.0

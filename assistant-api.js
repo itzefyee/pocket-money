@@ -10,8 +10,8 @@ function sanitizeContext(value){
 
 export function createAssistantHandler({apiKey,model,fetchImpl,json}){
  let active=0;
- return async function handle(req,res){
-  if(req.headers.origin!==`http://${req.headers.host}`){json(res,403,{error:'This request must come from Pocket.'});return;}
+ return async function handle(req,res,expectedOrigin){
+  if(req.headers.origin!==expectedOrigin){json(res,403,{error:'This request must come from Pocket.'});return;}
   if(!apiKey){json(res,503,{error:'AI understanding is not configured. You can still ask questions on device.'});return;}
   if(!req.headers['content-type']?.startsWith('application/json')){json(res,415,{error:'Expected JSON.'});return;}
   if(active>=2){json(res,429,{error:'The assistant is busy. Try again shortly or switch to on-device answers.'});return;}

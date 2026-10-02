@@ -19,18 +19,24 @@ export function normalizeExtraction(value){
  let amount=null;try{if(value.amount!==null&&value.amount!==undefined)amount=cents(value.amount);}catch{}
  return {merchant:typeof value.merchant==='string'?value.merchant.slice(0,200):'',amount,date:validDate(value.date||'')?value.date:today(),category:CATEGORIES.includes(value.category)?value.category:'Other',type:value.type==='income'?'income':'expense',account:['bank','cash','ewallet'].includes(value.account)?value.account:'bank',note:'',source:'AI extraction'};
 }
-export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.env.GEMINI_MODEL||'gemini-2.5-flash',fetchImpl=fetch}={}){
+export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.env.GEMINI_MODEL||'gemini-2.5-flash',publicUrl=process.env.RENDER_EXTERNAL_URL,fetchImpl=fetch}={}){
  let active=0;
  const assets=new Map();
  const assistantHandler=createAssistantHandler({apiKey,model,fetchImpl,json});
+ const publicOrigin=publicUrl?new URL(publicUrl).origin:null;
+ const publicHost=publicOrigin?new URL(publicOrigin).host:null;
  return http.createServer(async(req,res)=>{
-  const host=req.headers.host||'';if(!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)){json(res,403,{error:'Use the local Pocket address.'});return;}
+  if(req.url==='/health'&&req.method==='GET'){json(res,200,{status:'ok'});return;}
+  const host=req.headers.host||'';
+  const local=/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
+  if(!local&&host!==publicHost){json(res,403,{error:'Use the Pocket address.'});return;}
+  const origin=local?`http://${host}`:publicOrigin;
   const url=new URL(req.url,'http://'+host);
   try{
    if(url.pathname==='/api/capabilities'&&req.method==='GET'){json(res,200,{ai:!!apiKey,ocr:'browser',storage:'browser'});return;}
-   if(url.pathname==='/api/assistant-plan'&&req.method==='POST'){await assistantHandler(req,res);return;}
+   if(url.pathname==='/api/assistant-plan'&&req.method==='POST'){await assistantHandler(req,res,origin);return;}
    if(url.pathname==='/api/extract'&&req.method==='POST'){
-    if(req.headers.origin!==`http://${host}`){json(res,403,{error:'This request must come from Pocket.'});return;}
+    if(req.headers.origin!==origin){json(res,403,{error:'This request must come from Pocket.'});return;}
     if(!apiKey){json(res,503,{error:'AI is not configured. Use on-device OCR or set GEMINI_API_KEY on the server.'});return;}
     if(!req.headers['content-type']?.startsWith('application/json')){json(res,415,{error:'Expected JSON.'});return;}
     if(active>=2){json(res,429,{error:'Two receipts are already being processed. Try again shortly.'});return;}
@@ -63,5 +69,6 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
  });
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
- const port=Number(process.env.PORT||4317);createServer().listen(port,'127.0.0.1',()=>console.log(`Pocket is ready at http://127.0.0.1:${port}\nAI extraction: ${process.env.GEMINI_API_KEY?'configured':'not configured (local OCR available)'}`));
+ const port=Number(process.env.PORT||4317),host=process.env.RENDER_EXTERNAL_URL?'0.0.0.0':'127.0.0.1';
+ createServer().listen(port,host,()=>console.log(`Pocket is ready at ${process.env.RENDER_EXTERNAL_URL||`http://127.0.0.1:${port}`}\nAI extraction: ${process.env.GEMINI_API_KEY?'configured':'not configured (local OCR available)'}`));
 }

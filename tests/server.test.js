@@ -1,10 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import {createServer,normalizeExtraction} from '../server.js';
 
 async function withServer(options,fn){const s=createServer(options);await new Promise(r=>s.listen(0,'127.0.0.1',r));const url=`http://127.0.0.1:${s.address().port}`;try{await fn(url);}finally{await new Promise(r=>s.close(r));}}
+function request(url,{method='GET',headers={},body}={}){return new Promise((resolve,reject)=>{const req=http.request(url,{method,headers},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});req.on('error',reject);req.end(body);});}
 test('server exposes app but not secrets or source tests',()=>withServer({apiKey:''},async url=>{
  assert.equal((await fetch(url)).status,200);assert.equal((await fetch(url+'/.env')).status,404);assert.equal((await fetch(url+'/server.js')).status,404);assert.equal((await fetch(url+'/tests/domain.test.js')).status,404);assert.equal((await(await fetch(url+'/api/capabilities')).json()).ai,false);
+}));
+test('Render hostname serves the app and requires its HTTPS origin for provider requests',()=>withServer({apiKey:'test-key',publicUrl:'https://pocket-test.onrender.com',fetchImpl:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({merchant:'Coffee',amount:12.9,date:'2026-10-02',category:'Food & drinks',type:'expense',account:'cash'})}]}}]})})},async url=>{
+ const host='pocket-test.onrender.com',headers={Host:host};
+ assert.equal(await request(url,{headers}),200);
+ assert.equal(await request(url+'/api/capabilities',{headers}),200);
+ assert.equal(await request(url+'/app.js',{headers}),200);
+ assert.equal(await request(url,{headers:{Host:'other.example'}}),403);
+ const body=JSON.stringify({text:'Coffee RM12.90'});
+ assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...headers,Origin:'http://'+host,'Content-Type':'application/json'},body}),403);
+ assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...headers,Origin:'https://'+host,'Content-Type':'application/json'},body}),200);
+ assert.equal(await request(url+'/api/assistant-plan',{method:'POST',headers:{...headers,Origin:'http://'+host,'Content-Type':'application/json'},body:'{}'}),403);
+ assert.equal(await request(url+'/health',{headers:{Host:'render-internal'}}),200);
 }));
 test('public assets support compressed transfers and conditional caching, while APIs remain uncached',()=>withServer({apiKey:''},async url=>{
  const response=await fetch(url+'/app.js',{headers:{'Accept-Encoding':'gzip'}});assert.equal(response.status,200);assert.equal(response.headers.get('content-encoding'),'gzip');assert.match(await response.text(),/createMoneyAssistant/);
