@@ -234,11 +234,15 @@ Gently rounded rectangular panels define the ledger. Frontmatter records the rad
 
 ### Sign-in page
 
-The sign-in page pairs a forest identity panel with a white form panel on the cream canvas.
-It reuses Manrope, the Pocket mark, peach brand dot, green primary action, 8px input corners, and the existing focus treatment.
+The sign-in page uses an open cream canvas with a large forest-and-sage headline beside a warm white form card.
+An original SVG pocket holds little keepsakes, a savings coin, and a sprig, with peach stationery accents and a hand-drawn underline.
+It reuses Manrope, the Pocket mark, peach brand dot, green primary action, softly rounded inputs, and the existing focus treatment.
+The form introduces a small sun illustration and the greeting **Hello, you.**
 The username is prefilled as `pocket`, followed by one password field with a Show/Hide control and an **Open my Pocket** action.
 Wrong credentials produce a nearby text error; loading disables duplicate submits and keeps the page stable.
-On mobile, the identity panel becomes a short header and the form stacks beneath it, with 16px inputs and touch targets of at least 44px.
+On mobile, the illustration sits beside a compact headline above the form, with 16px inputs and touch targets of at least 44px.
+The welcome illustration and headline enter once with short transform-and-opacity animations, while the form enters in 250ms.
+Pointer hover adds restrained sun and arrow feedback; reduced-motion preferences remove movement.
 Successful sign-in opens the workspace directly without a tour or additional setup steps.
 
 ### Buttons

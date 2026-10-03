@@ -11,16 +11,68 @@
  <link rel="preload" href="/assets/manrope.woff2" as="font" type="font/woff2" crossorigin>
 </head>
 <body class="login-page">
+ <header class="login-header">
+  <a class="brand login-brand" href="/" aria-label="Pocket home"><span class="brand-mark"><svg width="27" height="27" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M5 5h18v11c0 5-4 8-9 8s-9-3-9-8V5Z" stroke="currentColor" stroke-width="2.4"/><path d="m6 11 8 5 8-5" stroke="currentColor" stroke-width="2.4"/></svg></span>pocket<span class="brand-dot">.</span></a>
+  <span class="login-header-note"><span aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M2 12h20M5 5l14 14M5 19 19 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span> A little clarity goes a long way.</span>
+ </header>
  <main class="login-shell" id="main">
-  <section class="login-story" aria-label="Pocket">
-   <a class="brand login-brand" href="/" aria-label="Pocket home"><span class="brand-mark"><svg width="27" height="27" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M5 5h18v11c0 5-4 8-9 8s-9-3-9-8V5Z" stroke="currentColor" stroke-width="2.4"/><path d="m6 11 8 5 8-5" stroke="currentColor" stroke-width="2.4"/></svg></span>pocket<span class="brand-dot">.</span></a>
-   <div class="login-intro"><p class="login-eyebrow">YOUR MONEY, A LITTLE CLEARER</p><h1>Make room for<br> what matters.</h1><p>Everyday spending. Small savings.<br>A little more clarity, all in one place.</p></div>
-   <div class="login-note"><svg width="28" height="32" viewBox="0 0 28 32" fill="none" aria-hidden="true"><path d="M23 3C7 3 2 12 6 22c7 5 17-3 17-19Z" stroke="currentColor" stroke-width="1.8"/><path d="M8 29C8 18 15 12 20 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Small habits. More possibilities.</span></div>
+  <section class="login-story" aria-labelledby="story-heading">
+   <div class="login-intro">
+    <p class="login-eyebrow"><span></span> SMALL HABITS. BIG POSSIBILITIES.</p>
+    <h1 id="story-heading">Good things<br>start <span class="login-highlight">small.<svg viewBox="0 0 210 18" fill="none" aria-hidden="true"><path d="M5 10C51 2 131 2 204 9M12 15C80 7 146 8 188 13" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg></span></h1>
+    <p>A coffee today. An adventure tomorrow.<br>Make a little room for both.</p>
+   </div>
+   <div class="pocket-art" aria-hidden="true">
+    <svg class="pocket-illustration" viewBox="0 0 510 300" fill="none">
+     <ellipse cx="252" cy="269" rx="141" ry="11" fill="#e4e6da"/>
+     <path d="M77 194C53 140 93 58 190 58c102 0 204 50 242 121 25 47-39 83-143 86-101 3-188-15-212-71Z" fill="#e8ecdf"/>
+     <g class="art-sprig" stroke="#537c53" stroke-width="2.5" stroke-linecap="round">
+      <path d="M122 217c-6-52-25-85-40-104"/>
+      <path d="M108 170c-29 0-40-17-38-30 22-2 36 13 38 30Z" fill="#adc49d"/>
+      <path d="M99 146c-2-22 8-36 22-40 8 19-1 35-22 40Z" fill="#c8d5b6"/>
+     </g>
+     <g class="art-card art-card-back" transform="rotate(12 322 123)">
+      <rect x="253" y="55" width="133" height="173" rx="12" fill="#eab99a" stroke="#cb936f" stroke-width="1.5"/>
+      <rect x="264" y="66" width="111" height="150" rx="7" stroke="#cb936f" stroke-dasharray="3 4"/>
+      <path d="m302 106 32-15-11 33-7-13-14-5Zm14 5 18-20" stroke="#855c44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="319" y="148" text-anchor="middle" fill="#694c38" font-family="Manrope,Arial,sans-serif" font-size="10" font-weight="750" letter-spacing="2">SOMEDAY</text>
+     </g>
+     <g class="art-card art-card-front" transform="rotate(-9 225 135)">
+      <rect x="150" y="58" width="143" height="177" rx="12" fill="#fffdf7" stroke="#d6dccb" stroke-width="1.5"/>
+      <path d="M171 87h37" stroke="#b6c6a7" stroke-width="5" stroke-linecap="round"/>
+      <text x="171" y="116" fill="#244e3f" font-family="Manrope,Arial,sans-serif" font-size="15" font-weight="750">Little wins</text>
+      <rect x="172" y="131" width="13" height="13" rx="3" fill="#e9efdf"/><path d="m175 137 3 3 5-6" stroke="#547252" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M196 138h55" stroke="#d5dbcb" stroke-width="4" stroke-linecap="round"/>
+      <rect x="172" y="156" width="13" height="13" rx="3" fill="#e9efdf"/><path d="m175 162 3 3 5-6" stroke="#547252" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M196 163h37" stroke="#d5dbcb" stroke-width="4" stroke-linecap="round"/>
+     </g>
+     <g class="art-pocket">
+      <path d="M125 156c0-7 6-13 13-13h226c7 0 13 6 13 13v64c0 35-54 57-126 57s-126-22-126-57v-64Z" fill="#244e3f"/>
+      <path d="M126 153c34 28 78 42 125 42s91-14 125-42" stroke="#456858" stroke-width="2"/>
+      <path d="M137 174v44c0 27 48 46 114 46s114-19 114-46v-44" stroke="#89a485" stroke-width="1.3" stroke-dasharray="3 5"/>
+      <path d="M240 217h23v12c0 6-5 10-11.5 10S240 235 240 229v-12Z" stroke="#c7d7b8" stroke-width="2"/><path d="m241 223 10.5 6 10.5-6" stroke="#c7d7b8" stroke-width="2"/>
+     </g>
+     <g class="art-coin" transform="rotate(-17 118 68)">
+      <circle cx="118" cy="68" r="27" fill="#e9c67e" stroke="#c6a45e" stroke-width="1.5"/>
+      <circle cx="118" cy="68" r="21" stroke="#c6a45e"/>
+      <path d="M116 80V64m0 6c-9 0-12-6-11-11 8 0 12 3 11 11Zm0-5c0-10 6-14 14-13 0 8-5 13-14 13Z" stroke="#826c3e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+     </g>
+     <path class="art-sparkle" d="m409 87 4 12 12 4-12 4-4 12-4-12-12-4 12-4 4-12Z" fill="#daa67f"/>
+     <path d="m80 221 3 8 8 3-8 3-3 8-3-8-8-3 8-3 3-8Z" fill="#b6c6a7"/>
+     <path d="m375 37 4 8m15-1-6 6m-8-24 1-6" stroke="#a3b695" stroke-width="2.5" stroke-linecap="round"/>
+     <circle cx="425" cy="172" r="4" fill="#b8c8ad"/>
+     <circle cx="148" cy="34" r="3" fill="#d6af8d"/>
+    </svg>
+    <span class="art-caption">A little saved. A little closer.<svg viewBox="0 0 62 31" fill="none"><path d="M3 6c13 1 25 20 47 17m-6-7 8 7-10 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+   </div>
+   <div class="login-values"><span>Spend mindfully.</span><i></i><span>Save for someday.</span><i></i><span>Enjoy the now.</span></div>
   </section>
   <section class="login-panel" aria-labelledby="login-heading">
    <div class="login-form-wrap">
-    <h2 id="login-heading">Welcome back.</h2>
-    <p class="login-description">Sign in to your money workspace.</p>
+    <div class="login-welcome-mark" aria-hidden="true"><svg viewBox="0 0 40 40" width="40" height="40" fill="none"><circle cx="20" cy="20" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M20 4v4m0 24v4M4 20h4m24 0h4M9 9l3 3m16 16 3 3M9 31l3-3M28 12l3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 21c1.5 2 4.5 2 6 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+    <p class="login-kicker">YOUR OWN LITTLE CORNER</p>
+    <h2 id="login-heading">Hello, you.</h2>
+    <p class="login-description">Sign in and make yourself at home.</p>
     <form id="login-form" action="/api/auth/login" method="post">
      <label class="form-label" for="username">Username<input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="80" value="pocket" required></label>
      <label class="form-label" for="password">Password</label>
@@ -29,12 +81,12 @@
      <button class="button login-submit" type="submit"><span>Open my Pocket</span><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
     <details class="login-help"><summary>Trouble signing in?</summary><p>Your username is <strong>pocket</strong>. Use your Pocket access password, which is separate from your database or hosting password. If you need it, contact the person who set up this workspace.</p></details>
-    <p class="login-private"><svg width="15" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6l8-3Z" stroke="currentColor" stroke-width="1.6"/><path d="m8 12 3 3 5-6" stroke="currentColor" stroke-width="1.6"/></svg>Your workspace, ready when you are.</p>
+    <p class="login-private"><svg width="15" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6l8-3Z" stroke="currentColor" stroke-width="1.6"/><path d="m8 12 3 3 5-6" stroke="currentColor" stroke-width="1.6"/></svg>Your money story stays yours.</p>
     <noscript><p class="login-error">Turn on JavaScript in your browser to sign in to Pocket.</p></noscript>
    </div>
   </section>
  </main>
- <footer class="login-footer">Pocket. Make room for what matters.</footer>
+ <footer class="login-footer"><span>Made for your everyday.</span><span>A little more <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 16S3 12 3 7a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 5-7 9-7 9Z" stroke="currentColor" stroke-width="1.5"/></svg> in your pocket.</span></footer>
  <script type="module" src="/login.js"></script>
 </body>
 </html>

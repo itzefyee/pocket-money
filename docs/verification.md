@@ -1,5 +1,13 @@
 # Verification record
 
+## Illustrated welcome refresh (2026-10-03)
+
+Refreshed the sign-in page with an open cream layout, an original inline SVG pocket illustration, larger typography, a sun detail, and brief entrance motion.
+The existing database browser check passed wrong-password recovery, password visibility, sign-in, saves, reload, separate devices, conflicts, and sign-out.
+Reviewed desktop and mobile screenshots and checked widths from 320px through 1440px without horizontal overflow.
+Reduced-motion emulation confirms that the illustration and form entrance animations are disabled.
+The screenshot helper now waits for finite animations to finish so captures show the settled interface.
+
 ## On-page sign-in (2026-10-03)
 
 A clean Edge run against the previous deployment completed the native HTTP Basic challenge with the configured credentials and opened the dashboard.
