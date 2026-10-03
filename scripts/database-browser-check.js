@@ -13,12 +13,24 @@ let store,server,first,second;
 try{
  store=await createPostgresStore(process.env.DATABASE_URL,{schema});
  const state=demoState();await store.write(0,state);
- const password=randomUUID(),headers={Authorization:'Basic '+Buffer.from('pocket:'+password).toString('base64')};
+ const password=randomUUID();
  server=createServer({store,accessPassword:password,apiKey:''});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  process.env.POCKET_TEST_URL=`http://127.0.0.1:${server.address().port}/`;
- first=await openBrowser({port:9251,profile:'database-first',headers});
+ first=await openBrowser({port:9251,profile:'database-first',ready:"!!document.querySelector('#login-form')"});
+ await first.fill('#password','incorrect password');await first.click('.login-submit');
+ await first.until("document.querySelector('#login-error')?.textContent.includes('incorrect')");
+ assert.equal(await first.evaluate("document.querySelector('.login-submit').disabled"),false);
+ await first.fill('#password',password);await first.click('#show-password');
+ assert.equal(await first.evaluate("document.querySelector('#password').type"),'text');
+ await first.click('#show-password');
+ await first.screenshot('.impeccable/review/login-desktop.png');
+ for(const [width,height] of [[390,844],[320,568],[740,390]]){await first.resize(width,height);assert.equal(await first.evaluate('document.documentElement.scrollWidth>innerWidth'),false);}
+ await first.resize(390,844);await first.screenshot('.impeccable/review/login-mobile.png');
+ await first.resize(1440,1000);await first.click('.login-submit');
  await first.until("document.querySelector('#profile-name')?.textContent==='Alex' && !document.querySelector('.demo-banner')");
+ assert.doesNotMatch(await first.evaluate('document.cookie'),/pocket-session/);
+ console.log('PASS on-page login, wrong-password recovery, password visibility and mobile layout');
  assert.equal(await first.evaluate("document.querySelector('.local-status').textContent.trim()"),'Saved to database');
  assert.equal((await store.read()).state.transactions.length,99);
  await first.route('settings');
@@ -30,7 +42,8 @@ try{
  assert.equal(saved.state.transactions.find(t=>t.merchant==='Database browser check').amount,1725);
  assert.equal(await first.evaluate("localStorage.getItem('pocket-personal')"),null);
  console.log('PASS browser save reaches Postgres without relying on localStorage');
- second=await openBrowser({port:9252,profile:'database-second',headers});
+ second=await openBrowser({port:9252,profile:'database-second',ready:"!!document.querySelector('#login-form')"});
+ await second.fill('#password',password);await second.click('.login-submit');
  await second.until("document.querySelector('#profile-name')?.textContent==='Alex' && !document.querySelector('.demo-banner')");
  await second.route('transactions');await second.fill('#transaction-search','Database browser check');
  await second.click('[data-action=edit-transaction]');await second.fill('[name=amount]','19.50');
@@ -55,6 +68,10 @@ try{
  assert.equal((await store.read()).revision,3);
  assert.deepEqual(first.errors,[]);assert.deepEqual(second.errors,[]);
  console.log('PASS reload persistence, sample isolation, responsive layout and no browser exceptions');
+ await first.route('settings');await first.click('[data-action=sign-out]');await first.until("!!document.querySelector('#login-form')");
+ await first.send('Page.navigate',{url:process.env.POCKET_TEST_URL});await first.until("!!document.querySelector('#login-form')");
+ assert.equal(await second.evaluate("fetch('/api/capabilities').then(r=>r.status)"),200);
+ console.log('PASS sign-out returns to login, revokes this session and preserves the other device session');
 }finally{
  await first?.close();await second?.close();
  if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}await store?.close();

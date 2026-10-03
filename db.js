@@ -61,6 +61,17 @@ export async function createPostgresStore(connectionString,{schema='pocket'}={})
   });
  }catch(error){await pool.end();throw error;}
  return {
+  async createSession(tokenHash,passwordTag,expiresAt){
+   await transaction(async client=>{
+    await query(client,'DELETE FROM pocket.sessions WHERE expires_at <= now()');
+    await query(client,'INSERT INTO pocket.sessions (token_hash,password_tag,expires_at) VALUES ($1,$2,$3)',[tokenHash,passwordTag,expiresAt]);
+   });
+  },
+  async hasSession(tokenHash,passwordTag){
+   const result=await query(pool,'SELECT 1 FROM pocket.sessions WHERE token_hash=$1 AND password_tag=$2 AND expires_at>now()',[tokenHash,passwordTag]);
+   return result.rowCount===1;
+  },
+  async deleteSession(tokenHash){await query(pool,'DELETE FROM pocket.sessions WHERE token_hash=$1',[tokenHash]);},
   async read(){
    // One SQL statement sees a consistent snapshot, including its revision.
    const result=await query(pool,`SELECT w.revision,w.metadata || jsonb_build_object(

@@ -1,4 +1,10 @@
 CREATE SCHEMA IF NOT EXISTS pocket;
+CREATE TABLE IF NOT EXISTS pocket.sessions (
+ token_hash text PRIMARY KEY,
+ password_tag text NOT NULL,
+ expires_at timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON pocket.sessions (expires_at);
 CREATE TABLE IF NOT EXISTS pocket.workspaces (
  id smallint PRIMARY KEY CHECK (id = 1),
  revision bigint NOT NULL CHECK (revision BETWEEN 1 AND 9007199254740991),

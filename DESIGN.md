@@ -232,6 +232,15 @@ Gently rounded rectangular panels define the ledger. Frontmatter records the rad
 
 ## Components
 
+### Sign-in page
+
+The sign-in page pairs a forest identity panel with a white form panel on the cream canvas.
+It reuses Manrope, the Pocket mark, peach brand dot, green primary action, 8px input corners, and the existing focus treatment.
+The username is prefilled as `pocket`, followed by one password field with a Show/Hide control and an **Open my Pocket** action.
+Wrong credentials produce a nearby text error; loading disables duplicate submits and keeps the page stable.
+On mobile, the identity panel becomes a short header and the form stacks beneath it, with 16px inputs and touch targets of at least 44px.
+Successful sign-in opens the workspace directly without a tour or additional setup steps.
+
 ### Buttons
 Forest primary buttons use white type, a 40px minimum height, and a 12px label at weight 750. Hover deepens the forest; pressing shifts the control down 1px. Secondary buttons are white with a paper-edge border; ghost buttons use transparent green labels; destructive buttons use danger red. Keyboard focus receives a 3px outline with 4px offset. Disabled buttons use reduced opacity and a wait cursor.
 

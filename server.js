@@ -1,6 +1,6 @@
 import http from 'node:http';
 import {readFile,stat} from 'node:fs/promises';
-import {createHash,timingSafeEqual} from 'node:crypto';
+import {createHash} from 'node:crypto';
 import {gzip as gzipCallback} from 'node:zlib';
 import {promisify} from 'node:util';
 import {fileURLToPath} from 'node:url';
@@ -8,9 +8,10 @@ import path from 'node:path';
 import {CATEGORIES,cents,validDate,today,validateState} from './domain.js';
 import {createAssistantHandler} from './assistant-api.js';
 import {createPostgresStore} from './db.js';
+import {createSessionAuth} from './auth.js';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
-const publicFiles=new Set(['index.html','styles.css','app.js','capture.js','domain.js','seed.js','icons.js','favicon.svg','assets/manrope.woff2','assets/OFL.txt','assistant-query.js','assistant-ui.js','assistant.css','format.js']);
+const publicFiles=new Set(['index.html','login.html','login.css','login.js','styles.css','app.js','capture.js','domain.js','seed.js','icons.js','favicon.svg','assets/manrope.woff2','assets/OFL.txt','assistant-query.js','assistant-ui.js','assistant.css','format.js']);
 const gzip=promisify(gzipCallback);
 const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.woff2':'font/woff2','.txt':'text/plain; charset=utf-8'};
 const security={'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Cache-Control':'no-store','Permissions-Policy':'camera=(self), microphone=(self), geolocation=()'};
@@ -23,7 +24,7 @@ export function normalizeExtraction(value){
 export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.env.GEMINI_MODEL||'gemini-2.5-flash',publicUrl=process.env.RENDER_EXTERNAL_URL,customUrl=process.env.POCKET_PUBLIC_URL,fetchImpl=fetch,store=null,accessPassword=process.env.POCKET_ACCESS_PASSWORD}={}){
  if(accessPassword&&!store)throw Error('POCKET_ACCESS_PASSWORD requires DATABASE_URL.');
  if(store&&(!accessPassword||accessPassword.length<16))throw Error('Database mode requires POCKET_ACCESS_PASSWORD with at least 16 characters.');
- const passwordHash=store?createHash('sha256').update(accessPassword).digest():null;
+ const auth=store?createSessionAuth(accessPassword,store):null;
  let active=0;
  const assets=new Map();
  const assistantHandler=createAssistantHandler({apiKey,model,fetchImpl,json});
@@ -41,11 +42,22 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
   const origin=local?`http://${host}`:publicOrigins.get(host);
   const url=new URL(req.url,'http://'+host);
   try{
-   if(store){
-    const encoded=req.headers.authorization?.match(/^Basic ([A-Za-z0-9+/=]+)$/)?.[1];
-    let supplied='';try{const pair=Buffer.from(encoded||'','base64').toString('utf8');if(pair.startsWith('pocket:'))supplied=pair.slice(7);}catch{}
-    const suppliedHash=createHash('sha256').update(supplied).digest();
-    if(!timingSafeEqual(suppliedHash,passwordHash)){res.writeHead(401,{...security,'WWW-Authenticate':'Basic realm="Pocket"','Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify({error:'Pocket password required.'}));return;}
+   url.pathname=decodeURIComponent(url.pathname);
+   const loginPage=url.pathname==='/login'||url.pathname==='/login.html';
+   if(url.pathname==='/api/auth/login'||url.pathname==='/api/auth/logout'){
+    if(!auth){json(res,404,{error:'Sign-in is not enabled in browser storage mode.'});return;}
+    if(req.method!=='POST'){json(res,405,{error:'Method not allowed.'});return;}
+    await auth[url.pathname.endsWith('/login')?'login':'logout'](req,res,origin,json);return;
+   }
+   if(loginPage&&!auth){res.writeHead(303,{...security,Location:'/'});res.end();return;}
+   if(auth&&(url.pathname==='/'||url.pathname==='/index.html'||url.pathname.startsWith('/api/')||loginPage)){
+    const signedIn=await auth.authenticated(req,origin);
+    if(loginPage&&signedIn){res.writeHead(303,{...security,Location:'/'});res.end();return;}
+    if(!signedIn&&!loginPage){
+     if(url.pathname.startsWith('/api/'))json(res,401,{error:'Your session has ended. Sign in again to continue.',login:'/login'});
+     else{res.writeHead(303,{...security,Location:'/login'});res.end();}
+     return;
+    }
    }
    if(url.pathname==='/api/capabilities'&&req.method==='GET'){json(res,200,{ai:!!apiKey,ocr:'browser',storage:store?'database':'browser'});return;}
    if(url.pathname==='/api/workspace'&&store){
@@ -83,7 +95,7 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
     return;
    }
    if(req.method!=='GET'&&req.method!=='HEAD'){json(res,405,{error:'Method not allowed.'});return;}
-   const name=url.pathname==='/'?'index.html':decodeURIComponent(url.pathname).replace(/^\//,'');
+   const name=loginPage?'login.html':url.pathname==='/'?'index.html':url.pathname.replace(/^\//,'');
    if(!publicFiles.has(name)){json(res,404,{error:'Not found.'});return;}
    const filePath=path.join(root,name),info=await stat(filePath);let asset=assets.get(name);
    if(!asset||asset.modified!==info.mtimeMs||asset.size!==info.size){const data=await readFile(filePath),compress=data.length>1024&&path.extname(name)!=='.woff2';asset={data,compressed:compress?await gzip(data):null,modified:info.mtimeMs,size:info.size,etag:'W/"'+createHash('sha256').update(data).digest('hex').slice(0,24)+'"'};assets.set(name,asset);}

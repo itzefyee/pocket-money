@@ -12,6 +12,11 @@ test('Postgres preserves all records, commits atomically, rejects stale saves an
  let store;
  try{
   store=await createPostgresStore(connectionString,{schema});
+  await store.createSession('session-hash','password-version',new Date(Date.now()+60000));
+  await store.createSession('expired-hash','password-version',new Date(0));
+  assert.equal(await store.hasSession('session-hash','password-version'),true);
+  assert.equal(await store.hasSession('session-hash','wrong-version'),false);
+  assert.equal(await store.hasSession('expired-hash','password-version'),false);
   assert.deepEqual(await store.read(),{revision:0,state:null});
   const initial=demoState();
   initial.transactions.push({id:'transfer',date:'2026-10-03',merchant:'Move savings',amount:1250,type:'transfer',category:'Other',account:'bank',toAccount:'cash',note:'',source:'Test'});
@@ -39,6 +44,8 @@ test('Postgres preserves all records, commits atomically, rejects stale saves an
   trimmed.accounts=trimmed.accounts.filter(a=>a.id!=='cash');trimmed.goals=[];trimmed.budgets={};
   assert.equal(await store.write(2,trimmed),3);
   await store.close();store=await createPostgresStore(connectionString,{schema});
+  assert.equal(await store.hasSession('session-hash','password-version'),true);
+  await store.deleteSession('session-hash');assert.equal(await store.hasSession('session-hash','password-version'),false);
   assert.deepEqual(await store.read(),{revision:3,state:trimmed});
   assert.equal(await store.write(0,initial),null);
  }finally{

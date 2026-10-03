@@ -1,5 +1,15 @@
 # Verification record
 
+## On-page sign-in (2026-10-03)
+
+A clean Edge run against the previous deployment completed the native HTTP Basic challenge with the configured credentials and opened the dashboard.
+The reported failure was not reproduced with those credentials, but the old entry point exposed only a browser prompt and had no in-app recovery.
+Replaced that entry point with a styled login page and seven-day sessions stored as hashed random tokens in Neon.
+46 Node tests pass, covering redirects, private API protection, incorrect credentials, origin validation, HttpOnly/Secure cookie flags, throttling, session reuse, password changes, and logout revocation.
+The database browser check now enters credentials through the real form and verifies inline error recovery, password visibility, automatic navigation, reload persistence, separate devices, and sign-out.
+Login layouts were checked at 1440px, 390px, 320px, and 740px landscape without horizontal overflow.
+Inspected screenshots are saved in the ignored `.impeccable/review/login-*.png` files.
+
 ## Live Neon storage (2026-10-03)
 
 Created the dedicated `pocket` Neon project in Singapore and initialized six relational tables with 99 demonstration transactions, three accounts, nine budgets, two goals, and settings.

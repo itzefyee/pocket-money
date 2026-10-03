@@ -4,30 +4,38 @@ import http from 'node:http';
 import {createServer,normalizeExtraction} from '../server.js';
 import {emptyState} from '../seed.js';
 
-async function withServer(options,fn){const s=createServer({accessPassword:'',publicUrl:'',customUrl:'',...options});await new Promise(r=>s.listen(0,'127.0.0.1',r));const url=`http://127.0.0.1:${s.address().port}`;try{await fn(url);}finally{await new Promise(r=>s.close(r));}}
+function sessionStore(store={}){const sessions=new Map();return Object.assign(store,{createSession:async(id,tag,expires)=>sessions.set(id,{tag,expires}),hasSession:async(id,tag)=>sessions.get(id)?.tag===tag&&sessions.get(id).expires>Date.now(),deleteSession:async id=>sessions.delete(id)});}
+async function withServer(options,fn){if(options.store&&!options.store.hasSession)sessionStore(options.store);const s=createServer({accessPassword:'',publicUrl:'',customUrl:'',...options});await new Promise(r=>s.listen(0,'127.0.0.1',r));const url=`http://127.0.0.1:${s.address().port}`;try{await fn(url);}finally{s.closeAllConnections();await new Promise(r=>s.close(r));}}
+async function signIn(url,password='a very long private password'){
+ const response=await fetch(url+'/api/auth/login',{method:'POST',headers:{Origin:url,'Content-Type':'application/json'},body:JSON.stringify({username:'pocket',password})});
+ assert.equal(response.status,200);return response.headers.get('set-cookie').split(';')[0];
+}
 function request(url,{method='GET',headers={},body}={}){return new Promise((resolve,reject)=>{const req=http.request(url,{method,headers},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});req.on('error',reject);req.end(body);});}
 test('server exposes app but not secrets or source tests',()=>withServer({apiKey:''},async url=>{
  assert.equal((await fetch(url)).status,200);assert.equal((await fetch(url+'/.env')).status,404);assert.equal((await fetch(url+'/server.js')).status,404);assert.equal((await fetch(url+'/db.js')).status,404);assert.equal((await fetch(url+'/tests/domain.test.js')).status,404);assert.equal((await(await fetch(url+'/api/capabilities')).json()).ai,false);
 }));
-test('database mode requires a password and guards the whole app',async()=>{
+test('database mode shows an on-page login and protects private pages and records',async()=>{
  const store={read:async()=>({revision:0,state:null}),write:async()=>1};
  assert.throws(()=>createServer({store:null,accessPassword:'a very long private password'}),/requires DATABASE_URL/);
  assert.throws(()=>createServer({store,accessPassword:'short'}),/POCKET_ACCESS_PASSWORD/);
  await withServer({store,accessPassword:'a very long private password'},async url=>{
   assert.equal((await fetch(url+'/health')).status,200);
-  const denied=await fetch(url);assert.equal(denied.status,401);assert.match(denied.headers.get('www-authenticate'),/Basic/);
+  const denied=await fetch(url,{redirect:'manual'});assert.equal(denied.status,303);assert.equal(denied.headers.get('location'),'/login');assert.equal(denied.headers.get('www-authenticate'),null);
+  const login=await fetch(url+'/login');assert.equal(login.status,200);assert.match(await login.text(),/id="login-form"/);
+  assert.equal((await fetch(url+'/%69ndex.html',{redirect:'manual'})).status,303);
   assert.equal((await fetch(url+'/api/workspace')).status,401);
-  assert.equal((await fetch(url+'/app.js')).status,401);
-  const auth='Basic '+Buffer.from('pocket:a very long private password').toString('base64');
-  assert.equal((await fetch(url,{headers:{Authorization:auth}})).status,200);
-  assert.equal((await(await fetch(url+'/api/capabilities',{headers:{Authorization:auth}})).json()).storage,'database');
+  assert.equal((await fetch(url+'/login.css')).status,200);
+  assert.equal((await fetch(url+'/auth.js')).status,404);
+  const cookie=await signIn(url);
+  assert.equal((await fetch(url,{headers:{Cookie:cookie}})).status,200);
+  assert.equal((await(await fetch(url+'/api/capabilities',{headers:{Cookie:cookie}})).json()).storage,'database');
  });
 });
 test('database workspace API validates writes and rejects stale revisions',()=>withServer({accessPassword:'a very long private password',store:(()=>{
  let revision=0,state=null;return {read:async()=>({revision,state}),write:async(expected,next)=>{if(expected!==revision)return null;state=next;return ++revision;}};
 })()},async url=>{
- const auth='Basic '+Buffer.from('pocket:a very long private password').toString('base64');
- const headers={Authorization:auth,Origin:url,'Content-Type':'application/json'};
+ const cookie=await signIn(url);
+ const headers={Cookie:cookie,Origin:url,'Content-Type':'application/json'};
  const initial=emptyState();
  assert.deepEqual(await(await fetch(url+'/api/workspace',{headers})).json(),{revision:0,state:null});
  assert.equal((await fetch(url+'/api/workspace',{method:'PUT',headers:{...headers,Origin:'https://other.example'},body:JSON.stringify({revision:0,state:initial})})).status,403);
@@ -38,6 +46,46 @@ test('database workspace API validates writes and rejects stale revisions',()=>w
  initial.settings.name='Private';
  assert.deepEqual(await(await fetch(url+'/api/workspace',{method:'PUT',headers,body:JSON.stringify({revision:1,state:initial})})).json(),{revision:2});
  assert.equal((await(await fetch(url+'/api/workspace',{headers})).json()).state.settings.name,'Private');
+}));
+
+test('login errors are actionable, sessions are HttpOnly, and logout revokes the cookie',()=>withServer({store:sessionStore(),accessPassword:'a very long private password'},async url=>{
+ const headers={Origin:url,'Content-Type':'application/json'};
+ const login=(value,extra={})=>fetch(url+'/api/auth/login',{method:'POST',headers:{...headers,...extra},body:JSON.stringify(value)});
+ assert.equal((await login({username:'pocket',password:'wrong'})).status,401);
+ assert.equal((await login({username:'pocket',password:'a very long private password'},{Origin:'https://other.example'})).status,403);
+ assert.equal((await login({username:'pocket',password:'a very long private password'},{'Content-Type':'text/plain'})).status,415);
+ const response=await login({username:' POCKET ',password:'a very long private password'});
+ assert.equal(response.status,200);assert.deepEqual(await response.json(),{redirect:'/'});
+ const setCookie=response.headers.get('set-cookie');assert.match(setCookie,/HttpOnly/);assert.match(setCookie,/SameSite=Lax/);assert.match(setCookie,/Max-Age=604800/);
+ assert.doesNotMatch(setCookie,/a very long private password/);const cookie=setCookie.split(';')[0];
+ assert.equal((await fetch(url+'/login',{headers:{Cookie:cookie},redirect:'manual'})).headers.get('location'),'/');
+ assert.equal((await fetch(url+'/api/capabilities',{headers:{Cookie:cookie}})).status,200);
+ const logout=await fetch(url+'/api/auth/logout',{method:'POST',headers:{Cookie:cookie,Origin:url}});
+ assert.equal(logout.status,200);assert.match(logout.headers.get('set-cookie'),/Max-Age=0/);
+ assert.equal((await fetch(url+'/api/capabilities',{headers:{Cookie:cookie}})).status,401);
+ assert.equal((await fetch(url+'/api/capabilities',{headers:{Authorization:'Basic '+Buffer.from('pocket:a very long private password').toString('base64')}})).status,401);
+}));
+
+test('sessions survive server recreation, expire, and are invalidated by password changes',async()=>{
+ const store=sessionStore();let cookie;
+ await withServer({store,accessPassword:'a very long private password'},async url=>{cookie=await signIn(url);});
+ await withServer({store,accessPassword:'a very long private password'},async url=>{
+  assert.equal((await fetch(url+'/api/capabilities',{headers:{Cookie:cookie}})).status,200);
+ });
+ await withServer({store,accessPassword:'a different private password'},async url=>{
+  assert.equal((await fetch(url+'/api/capabilities',{headers:{Cookie:cookie}})).status,401);
+ });
+ const expired=sessionStore();await expired.createSession('expired','tag',new Date(0));assert.equal(await expired.hasSession('expired','tag'),false);
+});
+
+test('public-origin sign in uses a Secure host-only session cookie and limits repeated attempts',()=>withServer({store:sessionStore(),accessPassword:'a very long private password',publicUrl:'https://pocket.example'},async url=>{
+ const headers={Host:'pocket.example',Origin:'https://pocket.example','Content-Type':'application/json'};
+ const post=password=>new Promise((resolve,reject)=>{const req=http.request(url+'/api/auth/login',{method:'POST',headers},res=>{res.resume();res.on('end',()=>resolve({status:res.statusCode,headers:res.headers}));});req.on('error',reject);req.end(JSON.stringify({username:'pocket',password}));});
+ const login=await post('a very long private password');
+ assert.equal(login.status,200);const cookie=login.headers['set-cookie'][0];assert.match(cookie,/^__Host-pocket-session=/);assert.match(cookie,/; Secure/);assert.doesNotMatch(cookie,/Domain=/);
+ for(let i=0;i<10;i++)assert.equal((await post('incorrect')).status,401);
+ const limited=await post('incorrect');
+ assert.equal(limited.status,429);assert.ok(Number(limited.headers['retry-after'])>0);
 }));
 test('Render hostname serves the app and requires its HTTPS origin for provider requests',()=>withServer({apiKey:'test-key',publicUrl:'https://pocket-test.onrender.com',fetchImpl:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({merchant:'Coffee',amount:12.9,date:'2026-10-02',category:'Food & drinks',type:'expense',account:'cash'})}]}}]})})},async url=>{
  const host='pocket-test.onrender.com',headers={Host:host};

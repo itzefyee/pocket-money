@@ -10,7 +10,7 @@ Run these from the repository root after starting `npm start` in another termina
 | `npm run test:layout` | Responsive layouts |
 | `npm run test:performance` | Synthetic performance run |
 | `node scripts/ocr-check.js` | Generated receipt with real browser OCR; first use downloads Tesseract assets |
-| `npm run test:database-browser` | Starts its own authenticated server; verifies database saves, separate browsers, conflicts, reload, and sample isolation against Neon |
+| `npm run test:database-browser` | Starts its own server; checks on-page sign-in, error recovery, sign-out, database saves, separate browsers, conflicts, reload, and sample isolation against Neon |
 
 The database browser check requires `DATABASE_URL` in `.env` and creates a randomly named `pocket_test_*` schema, then removes only that test schema.
 It does not modify the live `pocket` tables.

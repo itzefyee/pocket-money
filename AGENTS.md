@@ -10,6 +10,7 @@ Pocket is a local, single-user finance app built with browser ES modules and a N
 - `capture.js`: browser speech and lazy local receipt OCR.
 - `assistant-query.js`: local, read-only question interpretation and aggregation. `assistant-ui.js`: conversation UI. `assistant-api.js`: validation for optional provider plans.
 - `server.js`: loopback static-file allowlist and optional Gemini endpoints. Keep private files and the API key out of browser responses.
+- `auth.js`: server-side session authentication. `login.html`, `login.css`, and `login.js`: public sign-in page. Keep ledger APIs behind a valid session and credentials out of browser storage.
 - `tests/`: Node domain, assistant, and server tests. `scripts/`: Edge browser checks; see [scripts/README.md](scripts/README.md).
 - `assets/`: self-hosted font and license. `.impeccable/design.json` is a design artifact; `.impeccable/review/` holds generated reports and is ignored.
 

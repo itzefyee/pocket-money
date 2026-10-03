@@ -42,10 +42,17 @@ The pooled hostname contains `-pooler`; Pocket's queries work with [Neon's trans
 Set both `DATABASE_URL` and `POCKET_ACCESS_PASSWORD` on the server, then restart.
 Use `sslmode=verify-full` in the connection string to require TLS and verify the database server's certificate.
 The Pocket password must have at least 16 characters and should differ from the Neon database password.
-The browser asks for username `pocket` and the Pocket password before it serves any app files or data.
+Open Pocket to see the on-page sign-in form, with username `pocket` already filled in.
+Enter your Pocket access password and choose **Open my Pocket** to go straight to the workspace.
+Incorrect details show an inline error without opening a browser password prompt.
+The password is the server's `POCKET_ACCESS_PASSWORD`, not your Neon or Render account password.
+Sessions last seven days, survive server restarts, and use an HttpOnly, SameSite cookie with Secure enabled on HTTPS.
+Only a hash of the random session token is stored in Neon; the password is never saved in browser storage.
+Use **Settings > Sign out** to revoke the current session.
+Changing `POCKET_ACCESS_PASSWORD` and restarting invalidates existing sessions on every device.
 Use HTTPS for any public address.
 The sample workspace stays in each browser; only the personal workspace is stored in PostgreSQL.
-Database mode creates the `pocket` schema and six tables at startup: `workspaces`, `settings`, `accounts`, `transactions`, `budgets`, and `goals`.
+Database mode creates the `pocket` schema and seven tables at startup: `workspaces`, `settings`, `accounts`, `transactions`, `budgets`, `goals`, and `sessions`.
 The Neon role needs permission to create schemas and tables.
 Amounts are integer cents, transactions reference valid accounts, and each save updates all tables and its revision in one database transaction.
 An existing `public.pocket_workspace` snapshot is migrated once into these tables without deleting the original snapshot.
@@ -172,7 +179,7 @@ npm run test:database-browser
 
 Domain/API suite: money validation, dates, transfer-safe summaries, date/quantity-aware extraction, receipt totals, CSV escaping/deduplication, server file isolation, origin validation, and normalized AI output.
 
-Assistant coverage: exact aggregation, date/account/merchant/amount filters, contextual follow-ups and resets, comparisons, budgets, unsupported questions, malformed model plans, no ledger data in provider payloads, and removal of provider-authored clarification prose. Additional regressions cover malformed capture amounts, gzip/ETag delivery, custom-domain origin validation, database authentication, revision conflicts, and upstream request cancellation. **43 domain/API tests pass.**
+Assistant coverage: exact aggregation, date/account/merchant/amount filters, contextual follow-ups and resets, comparisons, budgets, unsupported questions, malformed model plans, no ledger data in provider payloads, and removal of provider-authored clarification prose. Additional regressions cover malformed capture amounts, gzip/ETag delivery, custom-domain origin validation, database authentication, revision conflicts, and upstream request cancellation. **46 domain/API tests pass.**
 
 Browser suite: real rendering, persistence, capture/edit/delete/undo, focus restoration, imports, goals, budgets, debt accounts, separate workspaces, escaped content, responsive widths 320–1920, accessible button names, and no unhandled exceptions. Browser scripts use isolated profiles and never clear the user's normal browser records.
 
