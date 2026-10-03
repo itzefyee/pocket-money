@@ -9,6 +9,10 @@ Replaced that entry point with a styled login page and seven-day sessions stored
 The database browser check now enters credentials through the real form and verifies inline error recovery, password visibility, automatic navigation, reload persistence, separate devices, and sign-out.
 Login layouts were checked at 1440px, 390px, 320px, and 740px landscape without horizontal overflow.
 Inspected screenshots are saved in the ignored `.impeccable/review/login-*.png` files.
+Deployed commit `c670719` to the existing Render URL and exercised the public HTTPS login page without injected authentication headers.
+The live form recovered from an incorrect password, accepted the real password with Enter, and opened the unchanged 99-record workspace.
+Confirmed a Secure, HttpOnly session cookie, persistence after reload, sign-out returning to the form, HTTP 401 for records after sign-out, and zero browser exceptions.
+The existing Pocket password was preserved.
 
 ## Live Neon storage (2026-10-03)
 
