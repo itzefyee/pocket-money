@@ -1,5 +1,13 @@
 # Verification record
 
+## Single visible profile control (2026-10-03)
+
+Confirmed that desktop previously displayed both sidebar and top-bar profile controls.
+The top-bar profile now appears only on mobile, where the sidebar is hidden.
+Verified exactly one visible profile control in expanded and collapsed desktop layouts and at widths from 320px to 1440px.
+The navigation browser check, 46 Node tests, and syntax checks pass.
+The default suite continues to skip its opt-in database integration test.
+
 ## Profile menu and collapsible sidebar (2026-10-03)
 
 Reproduced the previous profile behavior in Edge: clicking the bottom profile immediately navigated to Settings, and no sidebar toggle existed.
