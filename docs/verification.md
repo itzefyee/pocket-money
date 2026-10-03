@@ -9,6 +9,11 @@ All 23 existing Edge browser checks pass in local storage mode.
 Two isolated Edge browsers verified database saves, shared records, stale-save rejection, persistence after reload, sample isolation, responsive layout, and zero unhandled browser exceptions.
 Desktop and mobile screenshots are stored in the ignored `.impeccable/review/database-*.png` files.
 The browser review caught an outdated device-only storage label; database workspaces now display `Saved to database`.
+Deployed commit `e127c67` to the existing Render service at https://pocket-money-w328.onrender.com with its existing access password preserved.
+Live HTTPS checks confirmed database capabilities, HTTP 401 for unauthenticated records, and 99 seeded records.
+An authenticated Edge browser created a temporary one-cent record, reloaded it from Neon, and deleted it; the final workspace matched the original seed exactly.
+Live desktop and mobile screenshots are saved as `.impeccable/review/neon-live-*.png`, with no unhandled browser exceptions.
+The server tests also pass with real deployment environment variables present; test servers explicitly isolate their passwords and allowed origins from the host environment.
 Earlier entries below describe historical checks before Neon was connected.
 
 Neon follow-up: the setup guide and `.env.example` now target Neon pooled connections, with Render hosting only the app.

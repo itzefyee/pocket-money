@@ -15,8 +15,8 @@ Pocket is a local, single-user finance app built with browser ES modules and a N
 
 ## Working rules
 
-- Use Node.js 22.9 or newer. The app has no npm dependencies. Run `npm test` and `npm run check` after code changes; use `npm.cmd` if PowerShell blocks `npm.ps1`.
-- Preserve sample and personal workspace separation. Browser localStorage is the source of truth; changes to persistence and restore need validation and migration care.
+- Use Node.js 22.9 or newer and `npm ci` to install the PostgreSQL driver. Run `npm test` and `npm run check` after code changes; use `npm.cmd` if PowerShell blocks `npm.ps1`.
+- Preserve sample and personal workspace separation. Browser localStorage is the source of truth without database mode; Neon owns the personal workspace when configured. Changes to persistence and restore need validation and migration care.
 - Store and calculate money as integer cents. Keep transfers separate from income and spending. Extraction and import results must be reviewed before saving; ambiguous amounts stay empty.
 - Keep the assistant read-only. Validate model plans on the server and evaluate them against the current ledger in the browser. Do not send ledger rows or calculated answers to the provider.
 - Keep optional AI opt-in, server-side credentials, loopback binding, and the static-file allowlist. Do not commit secrets, personal records, browser profiles, or generated review output.
