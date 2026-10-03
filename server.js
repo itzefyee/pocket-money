@@ -1,12 +1,13 @@
 import http from 'node:http';
 import {readFile,stat} from 'node:fs/promises';
-import {createHash} from 'node:crypto';
+import {createHash,timingSafeEqual} from 'node:crypto';
 import {gzip as gzipCallback} from 'node:zlib';
 import {promisify} from 'node:util';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
-import {CATEGORIES,cents,validDate,today} from './domain.js';
+import {CATEGORIES,cents,validDate,today,validateState} from './domain.js';
 import {createAssistantHandler} from './assistant-api.js';
+import {createPostgresStore} from './db.js';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const publicFiles=new Set(['index.html','styles.css','app.js','capture.js','domain.js','seed.js','icons.js','favicon.svg','assets/manrope.woff2','assets/OFL.txt','assistant-query.js','assistant-ui.js','assistant.css','format.js']);
@@ -19,21 +20,47 @@ export function normalizeExtraction(value){
  let amount=null;try{if(value.amount!==null&&value.amount!==undefined)amount=cents(value.amount);}catch{}
  return {merchant:typeof value.merchant==='string'?value.merchant.slice(0,200):'',amount,date:validDate(value.date||'')?value.date:today(),category:CATEGORIES.includes(value.category)?value.category:'Other',type:value.type==='income'?'income':'expense',account:['bank','cash','ewallet'].includes(value.account)?value.account:'bank',note:'',source:'AI extraction'};
 }
-export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.env.GEMINI_MODEL||'gemini-2.5-flash',publicUrl=process.env.RENDER_EXTERNAL_URL,fetchImpl=fetch}={}){
+export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.env.GEMINI_MODEL||'gemini-2.5-flash',publicUrl=process.env.RENDER_EXTERNAL_URL,customUrl=process.env.POCKET_PUBLIC_URL,fetchImpl=fetch,store=null,accessPassword=process.env.POCKET_ACCESS_PASSWORD}={}){
+ if(accessPassword&&!store)throw Error('POCKET_ACCESS_PASSWORD requires DATABASE_URL.');
+ if(store&&(!accessPassword||accessPassword.length<16))throw Error('Database mode requires POCKET_ACCESS_PASSWORD with at least 16 characters.');
+ const passwordHash=store?createHash('sha256').update(accessPassword).digest():null;
  let active=0;
  const assets=new Map();
  const assistantHandler=createAssistantHandler({apiKey,model,fetchImpl,json});
- const publicOrigin=publicUrl?new URL(publicUrl).origin:null;
- const publicHost=publicOrigin?new URL(publicOrigin).host:null;
+ const publicOrigins=new Map();
+ for(const value of [publicUrl,customUrl])if(value){
+  const url=new URL(value);
+  if(url.protocol!=='https:'||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw Error('Public URLs must be HTTPS origins.');
+  publicOrigins.set(url.host,url.origin);
+ }
  return http.createServer(async(req,res)=>{
   if(req.url==='/health'&&req.method==='GET'){json(res,200,{status:'ok'});return;}
   const host=req.headers.host||'';
   const local=/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
-  if(!local&&host!==publicHost){json(res,403,{error:'Use the Pocket address.'});return;}
-  const origin=local?`http://${host}`:publicOrigin;
+  if(!local&&!publicOrigins.has(host)){json(res,403,{error:'Use the Pocket address.'});return;}
+  const origin=local?`http://${host}`:publicOrigins.get(host);
   const url=new URL(req.url,'http://'+host);
   try{
-   if(url.pathname==='/api/capabilities'&&req.method==='GET'){json(res,200,{ai:!!apiKey,ocr:'browser',storage:'browser'});return;}
+   if(store){
+    const encoded=req.headers.authorization?.match(/^Basic ([A-Za-z0-9+/=]+)$/)?.[1];
+    let supplied='';try{const pair=Buffer.from(encoded||'','base64').toString('utf8');if(pair.startsWith('pocket:'))supplied=pair.slice(7);}catch{}
+    const suppliedHash=createHash('sha256').update(supplied).digest();
+    if(!timingSafeEqual(suppliedHash,passwordHash)){res.writeHead(401,{...security,'WWW-Authenticate':'Basic realm="Pocket"','Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify({error:'Pocket password required.'}));return;}
+   }
+   if(url.pathname==='/api/capabilities'&&req.method==='GET'){json(res,200,{ai:!!apiKey,ocr:'browser',storage:store?'database':'browser'});return;}
+   if(url.pathname==='/api/workspace'&&store){
+    if(req.method==='GET'){json(res,200,await store.read());return;}
+    if(req.method!=='PUT'){json(res,405,{error:'Method not allowed.'});return;}
+    if(req.headers.origin!==origin){json(res,403,{error:'This request must come from Pocket.'});return;}
+    if(!req.headers['content-type']?.startsWith('application/json')){json(res,415,{error:'Expected JSON.'});return;}
+    let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>20*1024*1024){json(res,413,{error:'Workspace is too large.'});return;}}
+    let payload;try{payload=JSON.parse(raw);}catch{json(res,400,{error:'Invalid workspace data.'});return;}
+    if(!Number.isSafeInteger(payload?.revision)||payload.revision<0){json(res,400,{error:'Invalid workspace revision.'});return;}
+    let next;try{next=validateState(payload.state);}catch(error){json(res,400,{error:error.message});return;}
+    const revision=await store.write(payload.revision,next);
+    if(revision===null){json(res,409,{error:'This workspace changed. Reload to see the latest version.'});return;}
+    json(res,200,{revision});return;
+   }
    if(url.pathname==='/api/assistant-plan'&&req.method==='POST'){await assistantHandler(req,res,origin);return;}
    if(url.pathname==='/api/extract'&&req.method==='POST'){
     if(req.headers.origin!==origin){json(res,403,{error:'This request must come from Pocket.'});return;}
@@ -69,6 +96,9 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
  });
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
- const port=Number(process.env.PORT||4317),host=process.env.RENDER_EXTERNAL_URL?'0.0.0.0':'127.0.0.1';
- createServer().listen(port,host,()=>console.log(`Pocket is ready at ${process.env.RENDER_EXTERNAL_URL||`http://127.0.0.1:${port}`}\nAI extraction: ${process.env.GEMINI_API_KEY?'configured':'not configured (local OCR available)'}`));
+ const port=Number(process.env.PORT||4317),host=process.env.RENDER_EXTERNAL_URL||process.env.POCKET_PUBLIC_URL?'0.0.0.0':'127.0.0.1';
+ if(!!process.env.DATABASE_URL!==!!process.env.POCKET_ACCESS_PASSWORD)throw Error('Set DATABASE_URL and POCKET_ACCESS_PASSWORD together.');
+ if(process.env.DATABASE_URL&&process.env.POCKET_ACCESS_PASSWORD.length<16)throw Error('POCKET_ACCESS_PASSWORD must have at least 16 characters.');
+ const store=process.env.DATABASE_URL?await createPostgresStore(process.env.DATABASE_URL):null;
+ createServer({store}).listen(port,host,()=>console.log(`Pocket is ready at ${process.env.POCKET_PUBLIC_URL||process.env.RENDER_EXTERNAL_URL||`http://127.0.0.1:${port}`}\nStorage: ${store?'PostgreSQL':'browser'}\nAI extraction: ${process.env.GEMINI_API_KEY?'configured':'not configured (local OCR available)'}`));
 }

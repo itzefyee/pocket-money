@@ -17,6 +17,15 @@ export function validateTransaction(t) {
  if(t.type==='transfer'&&(!t.toAccount||t.toAccount===t.account))throw new Error('Transfer to a different account.');
  return {...t,merchant:t.merchant.trim(),note:String(t.note||'').slice(0,1000)};
 }
+export function validateState(s){
+ if(!s||s.version!==1||!Array.isArray(s.transactions)||!Array.isArray(s.accounts)||!Array.isArray(s.goals)||!s.budgets||!s.settings)throw Error('This is not a Pocket backup.');
+ if(s.transactions.length>50000||s.accounts.length<1||s.accounts.length>50||s.goals.length>100)throw Error('Backup exceeds workspace limits.');
+ const ids=new Set();for(const a of s.accounts){if(typeof a.id!=='string'||ids.has(a.id)||typeof a.name!=='string'||!a.name.trim()||a.name.length>80||!Number.isSafeInteger(a.opening))throw Error('Invalid account in backup.');ids.add(a.id);}
+ const transactionIds=new Set();s.transactions=s.transactions.map(t=>{const v=validateTransaction(t);if(typeof t.id!=='string'||transactionIds.has(t.id)||!ids.has(t.account)||(t.type==='transfer'&&!ids.has(t.toAccount)))throw Error('Invalid transaction account or ID.');transactionIds.add(t.id);return v;});
+ for(const [k,n] of Object.entries(s.budgets)){if(!CATEGORIES.includes(k)||!Number.isSafeInteger(n)||n<=0)throw Error('Invalid budget.');}
+ const goalIds=new Set();for(const g of s.goals){if(typeof g.id!=='string'||goalIds.has(g.id)||typeof g.name!=='string'||g.name.length>100||!g.name.trim()||!Number.isSafeInteger(g.target)||g.target<=0||!Number.isSafeInteger(g.saved)||g.saved<0)throw Error('Invalid savings goal.');goalIds.add(g.id);}
+ if(!['MYR','USD','SGD','EUR','GBP'].includes(s.settings.currency))throw Error('Unsupported currency.');s.settings.name=String(s.settings.name||'').slice(0,60);return s;
+}
 export function summarize(transactions,month){
  const rows=transactions.filter(t=>t.date.startsWith(month));const categories={};let income=0,expense=0;
  for(const t of rows){if(t.type==='income')income+=t.amount;if(t.type==='expense'){expense+=t.amount;categories[t.category]=(categories[t.category]||0)+t.amount;}}

@@ -1,10 +1,37 @@
 # Verification record
 
+## Live Neon storage (2026-10-03)
+
+Created the dedicated `pocket` Neon project in Singapore and initialized six relational tables with 99 demonstration transactions, three accounts, nine budgets, two goals, and settings.
+The 43 existing Node tests and syntax checks pass.
+The additional integration test passed against live Neon in an isolated schema, checking full record round trips, concurrent revision conflicts, rollback after a SQL error, foreign keys, positive cents, removals, and reopening the connection.
+All 23 existing Edge browser checks pass in local storage mode.
+Two isolated Edge browsers verified database saves, shared records, stale-save rejection, persistence after reload, sample isolation, responsive layout, and zero unhandled browser exceptions.
+Desktop and mobile screenshots are stored in the ignored `.impeccable/review/database-*.png` files.
+The browser review caught an outdated device-only storage label; database workspaces now display `Saved to database`.
+Earlier entries below describe historical checks before Neon was connected.
+
+Neon follow-up: the setup guide and `.env.example` now target Neon pooled connections, with Render hosting only the app.
+The existing `pg` driver parsed the example Neon URL with TLS certificate verification enabled.
+All 43 Node tests, `npm run check`, and `git diff --check` passed after the configuration update.
+No Neon connection string or API credentials were available, so a live Neon connection has not been verified.
+
+2026-10-03. Added optional PostgreSQL personal-workspace storage with HTTP Basic password protection, server validation, and revision checked saves.
+All 43 Node tests, `npm run check`, and 23 Edge browser checks passed.
+The PostgreSQL 16 adapter was exercised against a temporary Docker database for table creation, read, insert, update, and stale revision rejection.
+An authenticated HTTP request through `server.js` then saved and read a workspace against that database.
+The 23 browser checks exercised the existing localStorage mode.
+A separate headless Edge check supplied the password with authenticated browser requests, opened the personal workspace, saved a transaction, reloaded, and confirmed it remained in PostgreSQL.
+No external hosted database or deployment was configured.
+
 ## Render deployment preparation (2026-10-02)
 
 On Node 24.4.1, all 40 Node tests and `npm run check` passed.
 The added server test sends requests with Render's public hostname and checks HTTPS origin validation, asset delivery, API access, rejection of an unrelated hostname, and the health endpoint.
 The test uses a stub provider; live Gemini access was not tested.
+The follow-up custom-domain regression first returned HTTP 403 for the configured domain, then passed after allowing the explicit `POCKET_PUBLIC_URL` HTTPS origin.
+It also confirms that an AI request from the Render origin cannot be submitted through the custom-domain host.
+The full Node suite now passes 41 tests, `npm run check` passes, and Render CLI v2.28.0 validates `render.yaml` with `valid: true`.
 
 2026-10-02. Tested on Node 24.15.0 and headless Microsoft Edge on Windows.
 

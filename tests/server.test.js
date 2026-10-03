@@ -2,11 +2,42 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {createServer,normalizeExtraction} from '../server.js';
+import {emptyState} from '../seed.js';
 
-async function withServer(options,fn){const s=createServer(options);await new Promise(r=>s.listen(0,'127.0.0.1',r));const url=`http://127.0.0.1:${s.address().port}`;try{await fn(url);}finally{await new Promise(r=>s.close(r));}}
+async function withServer(options,fn){const s=createServer({accessPassword:'',publicUrl:'',customUrl:'',...options});await new Promise(r=>s.listen(0,'127.0.0.1',r));const url=`http://127.0.0.1:${s.address().port}`;try{await fn(url);}finally{await new Promise(r=>s.close(r));}}
 function request(url,{method='GET',headers={},body}={}){return new Promise((resolve,reject)=>{const req=http.request(url,{method,headers},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});req.on('error',reject);req.end(body);});}
 test('server exposes app but not secrets or source tests',()=>withServer({apiKey:''},async url=>{
- assert.equal((await fetch(url)).status,200);assert.equal((await fetch(url+'/.env')).status,404);assert.equal((await fetch(url+'/server.js')).status,404);assert.equal((await fetch(url+'/tests/domain.test.js')).status,404);assert.equal((await(await fetch(url+'/api/capabilities')).json()).ai,false);
+ assert.equal((await fetch(url)).status,200);assert.equal((await fetch(url+'/.env')).status,404);assert.equal((await fetch(url+'/server.js')).status,404);assert.equal((await fetch(url+'/db.js')).status,404);assert.equal((await fetch(url+'/tests/domain.test.js')).status,404);assert.equal((await(await fetch(url+'/api/capabilities')).json()).ai,false);
+}));
+test('database mode requires a password and guards the whole app',async()=>{
+ const store={read:async()=>({revision:0,state:null}),write:async()=>1};
+ assert.throws(()=>createServer({store:null,accessPassword:'a very long private password'}),/requires DATABASE_URL/);
+ assert.throws(()=>createServer({store,accessPassword:'short'}),/POCKET_ACCESS_PASSWORD/);
+ await withServer({store,accessPassword:'a very long private password'},async url=>{
+  assert.equal((await fetch(url+'/health')).status,200);
+  const denied=await fetch(url);assert.equal(denied.status,401);assert.match(denied.headers.get('www-authenticate'),/Basic/);
+  assert.equal((await fetch(url+'/api/workspace')).status,401);
+  assert.equal((await fetch(url+'/app.js')).status,401);
+  const auth='Basic '+Buffer.from('pocket:a very long private password').toString('base64');
+  assert.equal((await fetch(url,{headers:{Authorization:auth}})).status,200);
+  assert.equal((await(await fetch(url+'/api/capabilities',{headers:{Authorization:auth}})).json()).storage,'database');
+ });
+});
+test('database workspace API validates writes and rejects stale revisions',()=>withServer({accessPassword:'a very long private password',store:(()=>{
+ let revision=0,state=null;return {read:async()=>({revision,state}),write:async(expected,next)=>{if(expected!==revision)return null;state=next;return ++revision;}};
+})()},async url=>{
+ const auth='Basic '+Buffer.from('pocket:a very long private password').toString('base64');
+ const headers={Authorization:auth,Origin:url,'Content-Type':'application/json'};
+ const initial=emptyState();
+ assert.deepEqual(await(await fetch(url+'/api/workspace',{headers})).json(),{revision:0,state:null});
+ assert.equal((await fetch(url+'/api/workspace',{method:'PUT',headers:{...headers,Origin:'https://other.example'},body:JSON.stringify({revision:0,state:initial})})).status,403);
+ assert.equal((await fetch(url+'/api/workspace',{method:'PUT',headers,body:JSON.stringify({revision:0,state:{...initial,accounts:[]}})})).status,400);
+ assert.deepEqual(await(await fetch(url+'/api/workspace',{method:'PUT',headers,body:JSON.stringify({revision:0,state:initial})})).json(),{revision:1});
+ const saved=await(await fetch(url+'/api/workspace',{headers})).json();assert.equal(saved.state.accounts.length,3);
+ assert.equal((await fetch(url+'/api/workspace',{method:'PUT',headers,body:JSON.stringify({revision:0,state:initial})})).status,409);
+ initial.settings.name='Private';
+ assert.deepEqual(await(await fetch(url+'/api/workspace',{method:'PUT',headers,body:JSON.stringify({revision:1,state:initial})})).json(),{revision:2});
+ assert.equal((await(await fetch(url+'/api/workspace',{headers})).json()).state.settings.name,'Private');
 }));
 test('Render hostname serves the app and requires its HTTPS origin for provider requests',()=>withServer({apiKey:'test-key',publicUrl:'https://pocket-test.onrender.com',fetchImpl:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({merchant:'Coffee',amount:12.9,date:'2026-10-02',category:'Food & drinks',type:'expense',account:'cash'})}]}}]})})},async url=>{
  const host='pocket-test.onrender.com',headers={Host:host};
@@ -19,6 +50,13 @@ test('Render hostname serves the app and requires its HTTPS origin for provider 
  assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...headers,Origin:'https://'+host,'Content-Type':'application/json'},body}),200);
  assert.equal(await request(url+'/api/assistant-plan',{method:'POST',headers:{...headers,Origin:'http://'+host,'Content-Type':'application/json'},body:'{}'}),403);
  assert.equal(await request(url+'/health',{headers:{Host:'render-internal'}}),200);
+}));
+test('configured custom domain serves the app and accepts only its own HTTPS origin',()=>withServer({apiKey:'test-key',publicUrl:'https://pocket-test.onrender.com',customUrl:'https://pocket.example',fetchImpl:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({merchant:'Coffee',amount:12.9,date:'2026-10-02',category:'Food & drinks',type:'expense',account:'cash'})}]}}]})})},async url=>{
+ const headers={Host:'pocket.example'},body=JSON.stringify({text:'Coffee RM12.90'});
+ assert.equal(await request(url,{headers}),200);
+ assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...headers,Origin:'https://pocket-test.onrender.com','Content-Type':'application/json'},body}),403);
+ assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...headers,Origin:'https://pocket.example','Content-Type':'application/json'},body}),200);
+ assert.equal(await request(url,{headers:{Host:'other.example'}}),403);
 }));
 test('public assets support compressed transfers and conditional caching, while APIs remain uncached',()=>withServer({apiKey:''},async url=>{
  const response=await fetch(url+'/app.js',{headers:{'Accept-Encoding':'gzip'}});assert.equal(response.status,200);assert.equal(response.headers.get('content-encoding'),'gzip');assert.match(await response.text(),/createMoneyAssistant/);
