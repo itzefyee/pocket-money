@@ -1,5 +1,16 @@
 # Verification record
 
+## Profile menu and collapsible sidebar (2026-10-03)
+
+Reproduced the previous profile behavior in Edge: clicking the bottom profile immediately navigated to Settings, and no sidebar toggle existed.
+Both profile buttons now share a native popover with Settings, JSON backup, workspace switching, and database-session sign-out.
+The sidebar retains its expanded or collapsed state in browser storage and keeps accessible labels on the compact navigation icons.
+The focused navigation check verifies pointer toggling, outside dismissal, arrow keys, Escape focus restoration, Tab dismissal, backup contents, workspace separation, draft preservation, reload persistence, and responsive defaults.
+Inspected expanded, collapsed, and mobile screenshots; menus remain within the viewport from 320px through 1440px, including short landscape screens.
+All 46 Node tests and syntax checks pass; the opt-in database integration test is skipped in the default suite.
+The isolated Neon browser check passes login, cross-device saves, conflicts, reload persistence, sample separation, and sign-out through the profile menu.
+All 32 layout checks, 17 assistant browser checks, 18 interaction checks, and 23 main-app browser checks pass.
+
 ## Illustrated welcome refresh (2026-10-03)
 
 Refreshed the sign-in page with an open cream layout, an original inline SVG pocket illustration, larger typography, a sun detail, and brief entrance motion.

@@ -48,7 +48,9 @@ Incorrect details show an inline error without opening a browser password prompt
 The password is the server's `POCKET_ACCESS_PASSWORD`, not your Neon or Render account password.
 Sessions last seven days, survive server restarts, and use an HttpOnly, SameSite cookie with Secure enabled on HTTPS.
 Only a hash of the random session token is stored in Neon; the password is never saved in browser storage.
-Use **Settings > Sign out** to revoke the current session.
+Open either profile icon and choose **Sign out** to revoke the current session.
+The profile menu also offers Settings, a backup download, and switching between personal and sample workspaces.
+Use the sidebar button beside the desktop breadcrumbs to collapse or expand navigation; Pocket remembers your choice in this browser.
 Changing `POCKET_ACCESS_PASSWORD` and restarting invalidates existing sessions on every device.
 Use HTTPS for any public address.
 The sample workspace stays in each browser; only the personal workspace is stored in PostgreSQL.

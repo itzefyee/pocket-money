@@ -25,4 +25,53 @@
 .profile>span:not(.avatar){min-width:0}.profile strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 button,a,input,select,textarea{touch-action:manipulation}
 button:disabled{cursor:not-allowed;opacity:.45}
+
+/* Workspace controls share the same compact menu on desktop and mobile. */
+.topbar-leading{display:flex;align-items:center;gap:14px;min-width:0}
+#sidebar-toggle{flex-shrink:0;color:var(--muted)}
+.sidebar-collapsed #sidebar-toggle svg{transform:rotate(180deg)}
+.sidebar .profile{display:grid;grid-template-columns:35px minmax(0,1fr) 16px;gap:10px;min-height:60px;border:0;border-radius:9px;padding:10px 8px;text-align:left}
+.sidebar .profile:hover,.sidebar .profile[aria-expanded=true]{background:#325c4a}
+.sidebar .profile>span:last-child{margin:0;display:flex;align-items:center}
+.sidebar .profile small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#profile-icon svg{transform:rotate(180deg)}
+#profile[aria-expanded=true] #profile-icon svg{transform:none}
+.sidebar-bottom{border-top:0;padding-top:8px}
+.sidebar .profile{position:relative}
+.sidebar .profile::before{content:"";position:absolute;inset:-9px 8px auto;border-top:1px solid #507260}
+#top-avatar[aria-expanded=true]{outline:2px solid var(--green);outline-offset:3px}
+.profile-menu{position:fixed;inset:auto;margin:0;width:252px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;padding:6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);box-shadow:0 12px 40px #183a2e24,0 2px 6px #183a2e0d}
+.profile-menu-heading{padding:10px 12px 12px;margin-bottom:4px;border-bottom:1px solid var(--line)}
+.profile-menu-heading strong{display:block;font-size:14px;overflow-wrap:anywhere}
+.profile-menu-heading small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.profile-menu button{display:flex;align-items:center;gap:10px;text-align:left;width:100%;min-height:44px;padding:10px 12px;border-radius:7px;font-size:12px;font-weight:600}
+.profile-menu button[hidden]{display:none}
+.profile-menu button:hover,.profile-menu button:focus-visible{background:#eef2e8;outline:none}
+.profile-menu button:focus-visible{box-shadow:inset 0 0 0 2px #60875b}
+.profile-menu .profile-sign-out{border-top:1px solid var(--line);border-radius:0 0 7px 7px;margin-top:4px;color:var(--danger)}
+@media(min-width:761px){
+ body{--sidebar-width:218px}
+ body.sidebar-collapsed{--sidebar-width:76px}
+ .sidebar{width:var(--sidebar-width);padding:30px 14px 16px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
+ .app-shell{margin-left:var(--sidebar-width)}
+ .toast{left:calc(50% + var(--sidebar-width)/2)}
+ body:not(.sidebar-collapsed) .sidebar .brand{font-size:31px;padding:0 13px;gap:9px}
+ body:not(.sidebar-collapsed) .sidebar .brand-dot{display:inline}
+ body:not(.sidebar-collapsed) .workspace-label{display:block;margin:12px 13px 30px}
+ body:not(.sidebar-collapsed) .sidebar nav{margin-top:0}
+ body:not(.sidebar-collapsed) .sidebar nav button{justify-content:flex-start;padding:13px 15px;margin-bottom:5px}
+ body:not(.sidebar-collapsed) .sidebar nav button span{display:inline}
+ body:not(.sidebar-collapsed) .side-note{display:block}
+ body:not(.sidebar-collapsed) .profile>span:not(.avatar){display:block}
+ body:not(.sidebar-collapsed) .profile #profile-icon{display:flex}
+ .sidebar nav{flex-shrink:0}
+ .sidebar-collapsed .sidebar{padding:30px 11px 16px}
+ .sidebar-collapsed .sidebar .brand{font-size:0;padding:0;gap:0;justify-content:center;min-height:48px}
+ .sidebar-collapsed .brand-dot,.sidebar-collapsed .workspace-label,.sidebar-collapsed .sidebar nav button span,.sidebar-collapsed .side-note,.sidebar-collapsed .profile>span:not(.avatar){display:none}
+ .sidebar-collapsed .sidebar nav{margin-top:32px}
+ .sidebar-collapsed .sidebar nav button{justify-content:center;padding:14px;margin-bottom:10px}
+ .sidebar-collapsed .sidebar .profile{display:flex;justify-content:center;padding:10px 0}
+}
+@media(min-width:761px) and (max-height:800px){.sidebar .side-note{display:none!important}.sidebar-bottom{margin-top:auto;padding-top:24px}}
+@media(max-width:760px){#sidebar-toggle{display:none}.topbar-leading{gap:0}.profile-menu{width:260px}}
 @media(max-width:760px){.month-control .icon-button,.budget-card-head .icon-button,.assistant-compose-actions .icon-button,.assistant-send,.avatar.small,.capture-tabs button{min-width:44px;min-height:44px}.heading-actions>.button{min-height:44px}.month-control input{min-width:0}}

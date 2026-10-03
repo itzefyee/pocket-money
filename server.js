@@ -11,7 +11,7 @@ import {createPostgresStore} from './db.js';
 import {createSessionAuth} from './auth.js';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
-const publicFiles=new Set(['index.html','login.html','login.css','login.js','styles.css','app.js','capture.js','domain.js','seed.js','icons.js','favicon.svg','assets/manrope.woff2','assets/OFL.txt','assistant-query.js','assistant-ui.js','assistant.css','format.js']);
+const publicFiles=new Set(['index.html','login.html','login.css','login.js','styles.css','app.js','navigation.js','capture.js','domain.js','seed.js','icons.js','favicon.svg','assets/manrope.woff2','assets/OFL.txt','assistant-query.js','assistant-ui.js','assistant.css','format.js']);
 const gzip=promisify(gzipCallback);
 const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.woff2':'font/woff2','.txt':'text/plain; charset=utf-8'};
 const security={'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Cache-Control':'no-store','Permissions-Policy':'camera=(self), microphone=(self), geolocation=()'};

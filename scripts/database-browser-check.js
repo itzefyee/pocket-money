@@ -68,7 +68,7 @@ try{
  assert.equal((await store.read()).revision,3);
  assert.deepEqual(first.errors,[]);assert.deepEqual(second.errors,[]);
  console.log('PASS reload persistence, sample isolation, responsive layout and no browser exceptions');
- await first.route('settings');await first.click('[data-action=sign-out]');await first.until("!!document.querySelector('#login-form')");
+ await first.click('#top-avatar');await first.click('#profile-menu [data-action=sign-out]');await first.until("!!document.querySelector('#login-form')");
  await first.send('Page.navigate',{url:process.env.POCKET_TEST_URL});await first.until("!!document.querySelector('#login-form')");
  assert.equal(await second.evaluate("fetch('/api/capabilities').then(r=>r.status)"),200);
  console.log('PASS sign-out returns to login, revokes this session and preserves the other device session');

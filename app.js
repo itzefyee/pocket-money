@@ -3,6 +3,7 @@ import {demoState,emptyState} from './seed.js';
 import {icon,categoryIcon} from './icons.js';
 import {recognizeReceipt,startVoice,stopVoice,aiExtract} from './capture.js';
 import {createMoneyAssistant} from './assistant-ui.js';
+import {createNavigationChrome} from './navigation.js';
 import {formatMoney,formatNumber,formatCalendar} from './format.js';
 
 const $=s=>document.querySelector(s);
@@ -11,6 +12,7 @@ const navItems=[['overview','grid','Overview'],['transactions','list','Transacti
 let mode='demo',state,storageError='',storageMode='loading',remoteRevision=0,saving=false,month=today().slice(0,7),view='overview',chartMode='cashflow',search='',filter='all',categoryFilter='all',pageIndex=0,toastTimer,capabilities={ai:false},captureTab='text',captureToken=0,modalFocus=null;
 let captureRequest=null,captureDraft={text:'',voice:'',ai:false},modalSnapshot=null,summaryRows=null,summaryCache=new Map(),filterCache=null;
 const draftSessions=new Map();
+const navigationChrome=createNavigationChrome();
 function drafts(){if(!draftSessions.has(mode))draftSessions.set(mode,{quick:'',settings:null});return draftSessions.get(mode);}
 function monthlySummary(selectedMonth=month){if(summaryRows!==state.transactions){summaryRows=state.transactions;summaryCache.clear();}if(!summaryCache.has(selectedMonth)){if(summaryCache.size>=24)summaryCache.delete(summaryCache.keys().next().value);summaryCache.set(selectedMonth,summarize(state.transactions,selectedMonth));}return summaryCache.get(selectedMonth);}
 try{mode=localStorage.getItem('pocket-mode')==='personal'?'personal':'demo';const saved=localStorage.getItem('pocket-'+mode);state=saved?validateState(JSON.parse(saved)):(mode==='demo'?demoState():emptyState());}catch{state=mode==='demo'?demoState():emptyState();storageError='Saved data could not be opened. Export any available backup before clearing browser storage.';}
@@ -52,9 +54,9 @@ function render(){
  const logScroll=$('#assistant-log')?.scrollTop;
  const validView=location.hash.slice(1);view=navItems.some(n=>n[0]===validView)?validView:'overview';
  document.body.classList.toggle('assistant-page',view==='assistant');
- if(!$('#navigation').children.length){$('#navigation').innerHTML=navItems.map(([id,i,title])=>`<button data-view="${id}" title="${title}">${icon(i)}<span>${title}</span></button>`).join('');$('#mobile-navigation').innerHTML=navItems.filter(([id])=>id!=='settings').map(([id,i,title])=>`<button data-view="${id}" aria-label="${title}">${icon(i)}<span>${({transactions:'Activity',budgets:'Budgets',assistant:'Ask'})[id]||title}</span></button>`).join('');}
+ if(!$('#navigation').children.length){$('#navigation').innerHTML=navItems.map(([id,i,title])=>`<button data-view="${id}" title="${title}" aria-label="${title}">${icon(i)}<span>${title}</span></button>`).join('');$('#mobile-navigation').innerHTML=navItems.filter(([id])=>id!=='settings').map(([id,i,title])=>`<button data-view="${id}" aria-label="${title}">${icon(i)}<span>${({transactions:'Activity',budgets:'Budgets',assistant:'Ask'})[id]||title}</span></button>`).join('');}
  document.querySelectorAll('#navigation button,#mobile-navigation button').forEach(button=>{const active=button.dataset.view===view;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
- $('#breadcrumb').textContent=navItems.find(n=>n[0]===view)[2];const name=state.settings.name||'Your workspace';$('#profile-name').textContent=name;document.querySelectorAll('.avatar').forEach(a=>a.textContent=(state.settings.name||'P')[0].toUpperCase());
+ $('#breadcrumb').textContent=navItems.find(n=>n[0]===view)[2];const name=state.settings.name||'Your workspace';$('#profile-name').textContent=name;navigationChrome.update({name,mode,storageMode});document.querySelectorAll('.avatar').forEach(a=>a.textContent=(state.settings.name||'P')[0].toUpperCase());
  $('#page').innerHTML=({overview:overview,transactions:transactionsView,assistant:assistantView,budgets:budgetsView,accounts:accountsView,settings:settingsView}[view])();document.title=`${navItems.find(n=>n[0]===view)[2]} · Pocket`;
  if($('#quick-text'))$('#quick-text').value=drafts().quick;
  if($('#settings-form')&&drafts().settings)for(const [name,value] of Object.entries(drafts().settings))$('#settings-form').elements[name].value=value;
@@ -184,7 +186,7 @@ $('#backup-file').addEventListener('change',async e=>{
  }catch(err){if(token===captureToken){closeModal();toast('Could not restore: '+err.message);}}
 });
 $('#modal').addEventListener('cancel',e=>{e.preventDefault();closeModal();});$('#modal').addEventListener('click',e=>{if(e.target===$('#modal')){const r=$('#modal').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeModal();}});
-$('#profile').onclick=()=>{location.hash='settings';};$('#help-button').innerHTML=icon('shield',18);$('#help-button').onclick=()=>{location.hash='settings';};$('#side-leaf').innerHTML=icon('leaf',34);$('#profile-icon').innerHTML=icon('chevrondown',14);
+$('#help-button').innerHTML=icon('shield',18);$('#help-button').onclick=()=>{location.hash='settings';};$('#side-leaf').innerHTML=icon('leaf',34);
 window.addEventListener('hashchange',()=>{closeModal();render();window.scrollTo(0,0);$('#main').focus({preventScroll:true});});
 window.addEventListener('storage',e=>{if(storageMode==='database'&&mode==='personal')return;if(e.key==='pocket-'+mode&&e.newValue){try{state=validateState(JSON.parse(e.newValue));render();toast('Updated from another tab.');}catch{toast('Another tab saved unreadable data. Your current view is unchanged.');}}});
 $('#page').innerHTML='<div class="panel panel-pad" role="status">Opening Pocket...</div>';

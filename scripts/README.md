@@ -7,6 +7,7 @@ Run these from the repository root after starting `npm start` in another termina
 | `npm run test:browser` | Main app flows |
 | `npm run test:assistant-browser` | Ask Pocket flows |
 | `npm run test:interactions` | Interaction regressions |
+| `npm run test:navigation` | Starts its own server; profile menus, keyboard navigation, sidebar preference, responsive layouts, and backup downloads |
 | `npm run test:layout` | Responsive layouts |
 | `npm run test:performance` | Synthetic performance run |
 | `node scripts/ocr-check.js` | Generated receipt with real browser OCR; first use downloads Tesseract assets |
