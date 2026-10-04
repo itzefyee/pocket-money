@@ -63,3 +63,26 @@ CREATE TABLE IF NOT EXISTS pocket.goals (
  extra jsonb NOT NULL DEFAULT '{}',
  PRIMARY KEY (workspace_id, id)
 );
+
+-- Keep workspace 1 and its sessions for the original Pocket login.
+DO $$
+BEGIN
+ IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='pocket' AND table_name='workspaces' AND column_name='id' AND data_type='smallint') THEN
+  ALTER TABLE pocket.workspaces DROP CONSTRAINT IF EXISTS workspaces_id_check;
+  ALTER TABLE pocket.workspaces ALTER COLUMN id TYPE bigint;
+  ALTER TABLE pocket.settings ALTER COLUMN workspace_id TYPE bigint;
+  ALTER TABLE pocket.accounts ALTER COLUMN workspace_id TYPE bigint;
+  ALTER TABLE pocket.transactions ALTER COLUMN workspace_id TYPE bigint;
+  ALTER TABLE pocket.budgets ALTER COLUMN workspace_id TYPE bigint;
+  ALTER TABLE pocket.goals ALTER COLUMN workspace_id TYPE bigint;
+ END IF;
+END $$;
+CREATE SEQUENCE IF NOT EXISTS pocket.workspace_ids START WITH 2;
+CREATE TABLE IF NOT EXISTS pocket.users (
+ id text PRIMARY KEY,
+ username text NOT NULL UNIQUE CHECK (username ~ '^[a-z0-9][a-z0-9_-]{2,31}$' AND username <> 'pocket'),
+ password_hash text NOT NULL,
+ workspace_id bigint NOT NULL UNIQUE REFERENCES pocket.workspaces(id),
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE pocket.sessions ADD COLUMN IF NOT EXISTS user_id text REFERENCES pocket.users(id);

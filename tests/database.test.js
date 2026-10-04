@@ -3,6 +3,41 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createPostgresStore} from '../db.js';
 import {demoState} from '../seed.js';
+import {readFile} from 'node:fs/promises';
+
+test('existing single-workspace schema migrates without losing records and isolates new users',{skip:!process.env.POCKET_TEST_DATABASE_URL},async()=>{
+ const {Pool}=await import('pg');const connectionString=process.env.POCKET_TEST_DATABASE_URL;
+ const schema='pocket_test_'+randomUUID().replaceAll('-','');const pool=new Pool({connectionString});let store;
+ try{
+  const original=(await readFile(new URL('../schema.sql',import.meta.url),'utf8')).split('-- Keep workspace 1')[0];
+  await pool.query(original.replace(/\bpocket\b/g,schema));
+  await pool.query(`INSERT INTO ${schema}.workspaces (id,revision) VALUES (1,1);
+   INSERT INTO ${schema}.settings (workspace_id,name,currency) VALUES (1,'Original owner','MYR');
+   INSERT INTO ${schema}.accounts (workspace_id,id,name,opening_cents,position) VALUES (1,'cash','Cash',12345,1);
+   INSERT INTO ${schema}.sessions (token_hash,password_tag,expires_at) VALUES ('original-session','version',now()+interval '1 day')`);
+  store=await createPostgresStore(connectionString,{schema});
+  const originalWorkspace=await store.read();assert.equal(originalWorkspace.state.accounts[0].opening,12345);
+  assert.equal((await store.getSession('original-session','version')).workspaceId,1);
+  const alice=await store.createUser('alice','hashed-password','Alice');const bob=await store.createUser('bob','another-hash','Bob');
+  assert.notEqual(alice.workspaceId,bob.workspaceId);assert.notEqual(alice.workspaceId,1);
+  const fresh=await store.read(alice.workspaceId);assert.equal(fresh.state.settings.name,'Alice');assert.deepEqual(fresh.state.budgets,{});
+  assert.equal(fresh.state.transactions.length,0);assert.ok(fresh.state.accounts.every(a=>a.opening===0));
+  const next=fresh.state;next.accounts[0].opening=5000;assert.equal(await store.write(1,next,alice.workspaceId),2);
+  assert.equal((await store.read(bob.workspaceId)).state.accounts[0].opening,0);assert.deepEqual(await store.read(),originalWorkspace);
+  await assert.rejects(store.createUser('alice','duplicate','Duplicate'),e=>e.code==='23505');
+  const counts=await pool.query(`SELECT count(*)::int AS count FROM ${schema}.workspaces`);assert.equal(counts.rows[0].count,3);
+  await store.createSession('alice-session','version',new Date(Date.now()+60000),alice.id);
+  assert.equal((await store.getSession('alice-session','version')).workspaceId,alice.workspaceId);
+  await store.close();store=await createPostgresStore(connectionString,{schema});
+  assert.equal((await store.findUser('alice')).passwordHash,'hashed-password');
+  assert.equal((await store.read(alice.workspaceId)).state.accounts[0].opening,5000);
+  assert.equal((await store.getSession('alice-session','version')).id,alice.id);
+  assert.deepEqual(await store.read(),originalWorkspace);
+ }finally{
+  await store?.close();assert.match(schema,/^pocket_test_[a-f0-9]{32}$/);
+  await pool.query(`DROP SCHEMA ${schema} CASCADE`);await pool.end();
+ }
+});
 
 test('Postgres preserves all records, commits atomically, rejects stale saves and enforces relationships',{skip:!process.env.POCKET_TEST_DATABASE_URL},async()=>{
  const {Pool}=await import('pg');

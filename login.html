@@ -74,13 +74,16 @@
     <h2 id="login-heading">Hello, you.</h2>
     <p class="login-description">Sign in and make yourself at home.</p>
     <form id="login-form" action="/api/auth/login" method="post">
-     <label class="form-label" for="username">Username<input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="80" value="pocket" required></label>
+     <label class="form-label" id="name-field" for="name" hidden>Your name<input id="name" name="name" type="text" autocomplete="given-name" maxlength="60" placeholder="What should we call you?" disabled></label>
+     <label class="form-label" for="username">Username<input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="80" value="pocket" required aria-describedby="account-hint"></label>
      <label class="form-label" for="password">Password</label>
      <div class="login-password"><input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" maxlength="1024" required aria-describedby="login-error"><button id="show-password" type="button" aria-label="Show password" aria-pressed="false">Show</button></div>
      <p id="login-error" class="login-error" role="alert" aria-live="polite"></p>
+     <p id="account-hint" class="login-account-hint" hidden>Choose a username with 3-32 letters, numbers, underscores or dashes, and a password with at least 12 characters.</p>
      <button class="button login-submit" type="submit"><span>Open my Pocket</span><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
-    <details class="login-help"><summary>Trouble signing in?</summary><p>Your username is <strong>pocket</strong>. Use your Pocket access password, which is separate from your database or hosting password. If you need it, contact the person who set up this workspace.</p></details>
+    <p class="login-switch"><span id="account-switch-label">New to Pocket?</span> <button class="text-button" id="account-switch" type="button">Create an account</button></p>
+    <details class="login-help"><summary>Trouble signing in?</summary><p>Use the username and password you chose when creating your account. The original shared workspace uses <strong>pocket</strong> and the access password from the person who set it up. Password reset is not available yet.</p></details>
     <p class="login-private"><svg width="15" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6l8-3Z" stroke="currentColor" stroke-width="1.6"/><path d="m8 12 3 3 5-6" stroke="currentColor" stroke-width="1.6"/></svg>Your money story stays yours.</p>
     <noscript><p class="login-error">Turn on JavaScript in your browser to sign in to Pocket.</p></noscript>
    </div>

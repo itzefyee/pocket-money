@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cents, validateTransaction, summarize, balances, parseEntry, parseReceipt, parseCSV, exportCSV, importTransactions } from '../domain.js';
+import { cents, validateTransaction, validateState, summarize, balances, parseEntry, parseReceipt, parseCSV, exportCSV, importTransactions } from '../domain.js';
+import {emptyState} from '../seed.js';
 
 test('money is represented as exact cents and invalid amounts rejected', () => {
   assert.equal(cents('1,234.56'),123456);
@@ -23,6 +24,16 @@ test('transfers preserve total balances',()=>{
  const a=[{id:'cash',opening:10000},{id:'bank',opening:20000}];
  const b=balances(a,[{...row,type:'transfer',toAccount:'bank',amount:2500}]);
  assert.equal(b.cash,7500);assert.equal(b.bank,22500);
+});
+test('workspace validation rejects totals that would lose integer-cent precision',()=>{
+ const state=emptyState();
+ state.accounts[0].opening=Number.MAX_SAFE_INTEGER;
+ state.transactions=[{...row,type:'income',account:state.accounts[0].id,amount:1}];
+ assert.throws(()=>validateState(state),/Account balance is too large/);
+ const budgetState=emptyState();
+ budgetState.budgets['Food & drinks']=Number.MAX_SAFE_INTEGER;
+ budgetState.budgets.Groceries=1;
+ assert.throws(()=>validateState(budgetState),/Budget total is too large/);
 });
 test('quick entry extracts currency, payment method and relative date',()=>{
  const r=parseEntry('Spent RM 18.50 at Zus Coffee yesterday with cash','2026-10-02');

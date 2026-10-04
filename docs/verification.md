@@ -1,5 +1,17 @@
 # Verification record
 
+## Save isolation and public AI configuration (2026-10-04)
+
+The isolated Neon browser check reproduced a workspace switch during an in-flight database save before the fix.
+The same check now keeps the personal workspace active until the save completes, then switches to the sample workspace without carrying over personal state.
+It also continues to pass sign-in, separate-browser updates, stale-revision rejection, reload, sample separation, and sign-out.
+The server now refuses to start with a public URL and Gemini key unless database authentication is enabled.
+Server tests confirm public AI rejects anonymous requests and accepts a signed-in request.
+Workspace validation rejects account balances and combined budgets that exceed exact integer-cent arithmetic.
+The current run passed 48 Node tests, with one opt-in database test skipped, plus syntax checks, 23 main browser checks, 17 assistant browser checks, 18 interaction checks, 32 layout checks, the navigation check, and the isolated Neon browser check.
+The 10,000-row performance check completed without browser exceptions; its measured median search handling was 73.5 ms under 4x CPU throttling.
+Screenshots of desktop and mobile sample layouts were inspected without visible layout defects.
+
 ## Single visible profile control (2026-10-03)
 
 Confirmed that desktop previously displayed both sidebar and top-bar profile controls.
@@ -107,6 +119,23 @@ The independent Ask Pocket review identified unrelated date questions becoming t
 
 The optimization reviewer independently verified repaired follow-up context, capture precision, skip navigation, microphone state, cached-answer refresh after transaction edits and draft retention, with zero browser exceptions. Final disposition: approve on correctness, no material blockers. Root completed all 32 layout checks and the real OCR check. See [optimization measurements](optimization.md).
 
-## Limits
+## Separate user accounts - October 4, 2026
+
+Reproduced the missing registration flow in headless Edge against an isolated Neon schema.
+The original login page exposed only the shared username and password form, and the registration endpoint did not accept account creation.
+Registration now creates an atomic user and personal workspace with salted password hashing, zero account balances and no transactions, budgets or goals.
+The workspace API chooses the ledger from the server-side session, and rejects requests from a tab whose account has changed.
+Registered accounts never migrate another user's browser ledger.
+The original login, records and existing sessions survive the schema upgrade.
+
+Validation passed: 49 default Node tests, syntax checks, both opt-in database tests against isolated Neon schemas, and the expanded database browser suite.
+The local browser suites also passed 23 app checks, 17 assistant checks, 18 interaction checks and 32 layout checks, plus the dedicated navigation suite.
+Database checks cover migration from the original constrained schema, rollback on duplicate registration, independent revisions, separate ledgers and persistence after reopening.
+Browser checks cover registration, duplicate username recovery, own-password sign-in, saving a transaction, creating the first budget, sample isolation, account-switch protection and reload persistence.
+Registration layouts were checked at 1440, 390, 320 and 740 pixels, and desktop and mobile screenshots were opened and inspected.
+Test data uses randomly named temporary schemas and isolated browser profiles; the live Pocket database was not modified.
+Password reset, email verification, account deletion and administration remain outside this change.
+
+## Earlier verification limits
 
 No live Gemini request, real microphone audio, physical mobile camera, bank integration, cross-device sync, comprehensive screen-reader session or production penetration test was performed. OCR accuracy on arbitrary real receipts remains variable and every result requires review.

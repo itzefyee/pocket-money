@@ -20,9 +20,13 @@ export function validateTransaction(t) {
 export function validateState(s){
  if(!s||s.version!==1||!Array.isArray(s.transactions)||!Array.isArray(s.accounts)||!Array.isArray(s.goals)||!s.budgets||!s.settings)throw Error('This is not a Pocket backup.');
  if(s.transactions.length>50000||s.accounts.length<1||s.accounts.length>50||s.goals.length>100)throw Error('Backup exceeds workspace limits.');
- const ids=new Set();for(const a of s.accounts){if(typeof a.id!=='string'||ids.has(a.id)||typeof a.name!=='string'||!a.name.trim()||a.name.length>80||!Number.isSafeInteger(a.opening))throw Error('Invalid account in backup.');ids.add(a.id);}
+ const ids=new Set();for(const a of s.accounts){if(typeof a.id!=='string'||!a.id||ids.has(a.id)||typeof a.name!=='string'||!a.name.trim()||a.name.length>80||!Number.isSafeInteger(a.opening))throw Error('Invalid account in backup.');ids.add(a.id);}
  const transactionIds=new Set();s.transactions=s.transactions.map(t=>{const v=validateTransaction(t);if(typeof t.id!=='string'||transactionIds.has(t.id)||!ids.has(t.account)||(t.type==='transfer'&&!ids.has(t.toAccount)))throw Error('Invalid transaction account or ID.');transactionIds.add(t.id);return v;});
- for(const [k,n] of Object.entries(s.budgets)){if(!CATEGORIES.includes(k)||!Number.isSafeInteger(n)||n<=0)throw Error('Invalid budget.');}
+ let budgetTotal=0n;for(const [k,n] of Object.entries(s.budgets)){if(!CATEGORIES.includes(k)||!Number.isSafeInteger(n)||n<=0)throw Error('Invalid budget.');budgetTotal+=BigInt(n);}
+ if(budgetTotal>BigInt(Number.MAX_SAFE_INTEGER))throw Error('Budget total is too large to calculate safely.');
+ const accountTotals=new Map(s.accounts.map(a=>[a.id,BigInt(a.opening)]));
+ for(const t of s.transactions){const amount=BigInt(t.amount);accountTotals.set(t.account,accountTotals.get(t.account)+(t.type==='income'?amount:-amount));if(t.type==='transfer')accountTotals.set(t.toAccount,accountTotals.get(t.toAccount)+amount);}
+ for(const total of accountTotals.values())if(total>BigInt(Number.MAX_SAFE_INTEGER)||total<BigInt(Number.MIN_SAFE_INTEGER))throw Error('Account balance is too large to calculate safely.');
  const goalIds=new Set();for(const g of s.goals){if(typeof g.id!=='string'||goalIds.has(g.id)||typeof g.name!=='string'||g.name.length>100||!g.name.trim()||!Number.isSafeInteger(g.target)||g.target<=0||!Number.isSafeInteger(g.saved)||g.saved<0)throw Error('Invalid savings goal.');goalIds.add(g.id);}
  if(!['MYR','USD','SGD','EUR','GBP'].includes(s.settings.currency))throw Error('Unsupported currency.');s.settings.name=String(s.settings.name||'').slice(0,60);return s;
 }

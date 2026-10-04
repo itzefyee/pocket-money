@@ -78,16 +78,22 @@ test('sessions survive server recreation, expire, and are invalidated by passwor
  const expired=sessionStore();await expired.createSession('expired','tag',new Date(0));assert.equal(await expired.hasSession('expired','tag'),false);
 });
 
-test('public-origin sign in uses a Secure host-only session cookie and limits repeated attempts',()=>withServer({store:sessionStore(),accessPassword:'a very long private password',publicUrl:'https://pocket.example'},async url=>{
+test('public-origin sign in protects AI and uses a Secure host-only session cookie',()=>withServer({store:sessionStore(),accessPassword:'a very long private password',publicUrl:'https://pocket.example',apiKey:'test-key',fetchImpl:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({merchant:'Coffee',amount:12.9,date:'2026-10-02',category:'Food & drinks',type:'expense',account:'cash'})}]}}]})})},async url=>{
  const headers={Host:'pocket.example',Origin:'https://pocket.example','Content-Type':'application/json'};
  const post=password=>new Promise((resolve,reject)=>{const req=http.request(url+'/api/auth/login',{method:'POST',headers},res=>{res.resume();res.on('end',()=>resolve({status:res.statusCode,headers:res.headers}));});req.on('error',reject);req.end(JSON.stringify({username:'pocket',password}));});
  const login=await post('a very long private password');
  assert.equal(login.status,200);const cookie=login.headers['set-cookie'][0];assert.match(cookie,/^__Host-pocket-session=/);assert.match(cookie,/; Secure/);assert.doesNotMatch(cookie,/Domain=/);
+ const body=JSON.stringify({text:'Coffee RM 12.90'}),apiHeaders={...headers,'Content-Type':'application/json'};
+ assert.equal(await request(url+'/api/extract',{method:'POST',headers:apiHeaders,body}),401);
+ assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...apiHeaders,Cookie:cookie.split(';')[0]},body}),200);
  for(let i=0;i<10;i++)assert.equal((await post('incorrect')).status,401);
  const limited=await post('incorrect');
  assert.equal(limited.status,429);assert.ok(Number(limited.headers['retry-after'])>0);
 }));
-test('Render hostname serves the app and requires its HTTPS origin for provider requests',()=>withServer({apiKey:'test-key',publicUrl:'https://pocket-test.onrender.com',fetchImpl:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({merchant:'Coffee',amount:12.9,date:'2026-10-02',category:'Food & drinks',type:'expense',account:'cash'})}]}}]})})},async url=>{
+test('public AI cannot start without authenticated database storage',()=>{
+ assert.throws(()=>createServer({apiKey:'test-key',publicUrl:'https://pocket.example',store:null,accessPassword:''}),/Public AI requires/);
+});
+test('Render hostname serves the app and requires its HTTPS origin for provider requests',()=>withServer({apiKey:'',publicUrl:'https://pocket-test.onrender.com'},async url=>{
  const host='pocket-test.onrender.com',headers={Host:host};
  assert.equal(await request(url,{headers}),200);
  assert.equal(await request(url+'/api/capabilities',{headers}),200);
@@ -95,15 +101,15 @@ test('Render hostname serves the app and requires its HTTPS origin for provider 
  assert.equal(await request(url,{headers:{Host:'other.example'}}),403);
  const body=JSON.stringify({text:'Coffee RM12.90'});
  assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...headers,Origin:'http://'+host,'Content-Type':'application/json'},body}),403);
- assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...headers,Origin:'https://'+host,'Content-Type':'application/json'},body}),200);
+ assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...headers,Origin:'https://'+host,'Content-Type':'application/json'},body}),503);
  assert.equal(await request(url+'/api/assistant-plan',{method:'POST',headers:{...headers,Origin:'http://'+host,'Content-Type':'application/json'},body:'{}'}),403);
  assert.equal(await request(url+'/health',{headers:{Host:'render-internal'}}),200);
 }));
-test('configured custom domain serves the app and accepts only its own HTTPS origin',()=>withServer({apiKey:'test-key',publicUrl:'https://pocket-test.onrender.com',customUrl:'https://pocket.example',fetchImpl:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({merchant:'Coffee',amount:12.9,date:'2026-10-02',category:'Food & drinks',type:'expense',account:'cash'})}]}}]})})},async url=>{
+test('configured custom domain serves the app and accepts only its own HTTPS origin',()=>withServer({apiKey:'',publicUrl:'https://pocket-test.onrender.com',customUrl:'https://pocket.example'},async url=>{
  const headers={Host:'pocket.example'},body=JSON.stringify({text:'Coffee RM12.90'});
  assert.equal(await request(url,{headers}),200);
  assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...headers,Origin:'https://pocket-test.onrender.com','Content-Type':'application/json'},body}),403);
- assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...headers,Origin:'https://pocket.example','Content-Type':'application/json'},body}),200);
+ assert.equal(await request(url+'/api/extract',{method:'POST',headers:{...headers,Origin:'https://pocket.example','Content-Type':'application/json'},body}),503);
  assert.equal(await request(url,{headers:{Host:'other.example'}}),403);
 }));
 test('public assets support compressed transfers and conditional caching, while APIs remain uncached',()=>withServer({apiKey:''},async url=>{

@@ -15,7 +15,11 @@ Open **http://127.0.0.1:4317**. The default is a clearly labeled sample workspac
 
 Run the command from the project root. On Windows PowerShell, use `npm.cmd start` if the execution policy blocks `npm.ps1`.
 
-The server binds to loopback and rejects unrelated hostnames. This is a single-user local app, not an authenticated public service. Desktop and mobile layouts work in the browser; opening it from a separate phone requires a separately configured secure hosting setup. Do not expose this local server directly to the internet.
+The server binds to loopback and rejects unrelated hostnames.
+Browser-only mode is a local workspace without sign-in.
+Database mode supports separate signed-in users and personal ledgers.
+Desktop and mobile layouts work in the browser; opening it from a separate phone requires a separately configured secure hosting setup.
+Do not expose this local server directly to the internet.
 
 ## Deploy on Render
 
@@ -30,11 +34,12 @@ The deployed app runs without a Gemini key, so optional AI extraction and unders
 Without a database, each browser keeps its own sample and personal workspaces in localStorage.
 Records from `127.0.0.1` do not automatically appear at the Render address; use Settings backup and restore if you want to move them.
 The Render URL is publicly reachable. Without database mode, Pocket has no access control, so use it only with data you are comfortable keeping in that browser and do not add a shared `GEMINI_API_KEY` to the public service.
+Pocket refuses to start when a public URL and `GEMINI_API_KEY` are configured without both `DATABASE_URL` and `POCKET_ACCESS_PASSWORD`.
 Render's free service may take time to respond after inactivity.
 
 ## Private Neon database
 
-Pocket uses Neon Postgres to save one personal workspace for use across your devices.
+Pocket uses Neon Postgres to save a separate personal workspace for each registered user across their devices.
 The Node server connects using the existing `pg` driver and `DATABASE_URL`, following [Neon's Node.js connection guidance](https://neon.com/docs/guides/node).
 Create a project in the [Neon Console](https://console.neon.tech), choose a region near your Render service, and open **Connect**.
 Select the database and role, enable **Connection pooling**, and copy the connection string.
@@ -43,23 +48,37 @@ Set both `DATABASE_URL` and `POCKET_ACCESS_PASSWORD` on the server, then restart
 Use `sslmode=verify-full` in the connection string to require TLS and verify the database server's certificate.
 The Pocket password must have at least 16 characters and should differ from the Neon database password.
 Open Pocket to see the on-page sign-in form, with username `pocket` already filled in.
-Enter your Pocket access password and choose **Open my Pocket** to go straight to the workspace.
+To start fresh, choose **Create an account**, enter your name, choose a unique username and a password of at least 12 characters, then choose **Create my Pocket**.
+Usernames contain 3-32 letters, numbers, underscores or dashes, are case-insensitive, and cannot use the reserved name `pocket`.
+Registration signs you in and opens your own personal ledger with zero balances, no transactions, no budgets and no savings goals.
+The starter accounts are Main account, E-wallet and Cash; rename them and set opening balances in Accounts.
+Open Budgets & goals and choose **Add a budget** to create your monthly category limits.
+Other people can register on the same deployment and get separate personal ledgers.
+Each account can explore the sample workspace separately from its personal records.
+Sign in again with the username and password you chose.
+Password reset and account deletion are not available yet.
+The original `pocket` login still accepts `POCKET_ACCESS_PASSWORD` and opens the existing workspace, preserving its records.
+Everyone who knows that original access password can open that original workspace, so use your own account for personal records.
 Incorrect details show an inline error without opening a browser password prompt.
-The password is the server's `POCKET_ACCESS_PASSWORD`, not your Neon or Render account password.
+The original login password is the server's `POCKET_ACCESS_PASSWORD`, not your Neon or Render account password.
+Registered passwords are stored as salted scrypt hashes using [Node's crypto API](https://nodejs.org/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback).
 Sessions last seven days, survive server restarts, and use an HttpOnly, SameSite cookie with Secure enabled on HTTPS.
 Only a hash of the random session token is stored in Neon; the password is never saved in browser storage.
 Open the profile menu and choose **Sign out** to revoke the current session.
 The profile control appears in the sidebar on desktop and the top bar on mobile, with only one visible at a time.
 The profile menu also offers Settings, a backup download, and switching between personal and sample workspaces.
 Use the sidebar button beside the desktop breadcrumbs to collapse or expand navigation; Pocket remembers your choice in this browser.
-Changing `POCKET_ACCESS_PASSWORD` and restarting invalidates existing sessions on every device.
+Changing `POCKET_ACCESS_PASSWORD` and restarting invalidates existing sessions on every device, including registered-user sessions.
+Registered users can then sign in again with their own unchanged passwords.
 Use HTTPS for any public address.
 The sample workspace stays in each browser; only the personal workspace is stored in PostgreSQL.
-Database mode creates the `pocket` schema and seven tables at startup: `workspaces`, `settings`, `accounts`, `transactions`, `budgets`, `goals`, and `sessions`.
+Database mode creates the `pocket` schema and eight tables at startup: `users`, `workspaces`, `settings`, `accounts`, `transactions`, `budgets`, `goals`, and `sessions`.
+Startup upgrades existing single-workspace tables and sessions without deleting or copying their records into new accounts.
 The Neon role needs permission to create schemas and tables.
 Amounts are integer cents, transactions reference valid accounts, and each save updates all tables and its revision in one database transaction.
 An existing `public.pocket_workspace` snapshot is migrated once into these tables without deleting the original snapshot.
-If the database is empty, the first browser to open the personal workspace copies any existing personal workspace from that same browser origin, or creates an empty one.
+For the original `pocket` login only, an empty database workspace copies any existing personal workspace from that same browser origin, or creates an empty one.
+Registered accounts always start fresh and never copy an earlier user's browser records.
 A database that already has data always wins over browser storage.
 New browsers open the database workspace by default; an explicitly selected sample workspace remains separate and local.
 Download a JSON backup before enabling it if you want a separate copy.
@@ -81,7 +100,8 @@ Keep both secrets out of Git and keep regular JSON backups from Settings.
 To create the tables before starting the server, run `npm run db:setup`.
 To populate an empty database with the existing demonstration ledger, run `npm run db:setup -- --sample`.
 To migrate a downloaded Pocket JSON backup, run `npm run db:setup -- path/to/backup.json`.
-These import commands initialize an empty database only and refuse to replace an existing workspace.
+These import commands initialize the original `pocket` workspace only and refuse to replace its existing records.
+Registered users restore backups into their own workspace through Settings.
 Use the app's reviewed backup restore flow if you intend to replace existing records.
 Sample initialization copies 99 transactions, three accounts, nine budgets, two goals, and the sample settings into the database workspace.
 These are demonstration records, not a bank feed.
@@ -151,12 +171,20 @@ Duplicates match date, normalized merchant, amount, type and accounts. Two legit
 
 ## Data and boundaries
 
-- Without database mode, browser localStorage holds separate sample and personal workspaces; clearing browser storage deletes records. In database mode, the password protects the app and the personal workspace is shared across devices. Back up from Settings in either mode; backups are plain-text financial data.
-- Database mode has one shared password and one personal workspace, not separate user accounts. No direct bank/e-wallet connection is included. No credentials or bank connectivity are simulated.
+- Without database mode, browser localStorage holds separate sample and personal workspaces; clearing browser storage deletes records.
+  In database mode, each signed-in account has its own personal workspace shared across that user's devices.
+  Back up from Settings in either mode; backups are plain-text financial data.
+- Database mode supports separate usernames, password hashes and personal ledgers.
+  Workspace access is determined by the session on the server.
+  Sample records and workspace preferences use separate browser keys for registered users.
+  No direct bank/e-wallet connection is included.
+  No credentials or bank connectivity are simulated.
 - Workspace currency is a label; changing it does **not** convert existing amounts.
 - Balances include future-dated entries if you enter them. Budget limits are shared across months, not a historical versioned plan.
 - This release tracks debt balances and transfers; it does not calculate loan interest, amortization schedules, investment returns, or financial advice.
-- This is a single-user service. Do not use one deployment for unrelated users.
+- Registration is open to visitors when database mode is enabled.
+  Sign-in and registration are rate limited.
+  Email verification, password recovery, account deletion and administration are not included.
 
 ## Architecture
 
@@ -180,9 +208,11 @@ node scripts/ocr-check.js
 npm run test:database-browser
 ```
 
-Domain/API suite: money validation, dates, transfer-safe summaries, date/quantity-aware extraction, receipt totals, CSV escaping/deduplication, server file isolation, origin validation, and normalized AI output.
+Domain/API suite: money validation, safe account and budget totals, dates, transfer-safe summaries, date/quantity-aware extraction, receipt totals, CSV escaping/deduplication, server file isolation, origin validation, and normalized AI output.
 
-Assistant coverage: exact aggregation, date/account/merchant/amount filters, contextual follow-ups and resets, comparisons, budgets, unsupported questions, malformed model plans, no ledger data in provider payloads, and removal of provider-authored clarification prose. Additional regressions cover malformed capture amounts, gzip/ETag delivery, custom-domain origin validation, database authentication, revision conflicts, and upstream request cancellation. **46 domain/API tests pass.**
+Assistant coverage: exact aggregation, date/account/merchant/amount filters, contextual follow-ups and resets, comparisons, budgets, unsupported questions, malformed model plans, no ledger data in provider payloads, and removal of provider-authored clarification prose.
+Additional regressions cover malformed capture amounts, gzip/ETag delivery, custom-domain origin validation, authentication, registration, per-user ledger access, revision conflicts, public AI access control, and upstream request cancellation.
+**49 domain/API tests pass; two opt-in database tests are skipped by default and also passed against isolated Neon test schemas.**
 
 Browser suite: real rendering, persistence, capture/edit/delete/undo, focus restoration, imports, goals, budgets, debt accounts, separate workspaces, escaped content, responsive widths 320–1920, accessible button names, and no unhandled exceptions. Browser scripts use isolated profiles and never clear the user's normal browser records.
 

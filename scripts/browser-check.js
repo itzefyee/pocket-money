@@ -43,4 +43,4 @@ try{
  const unlabeled=await evaluate("Array.from(document.querySelectorAll('button')).filter(b=>!b.textContent.trim()&&!b.getAttribute('aria-label')&&!b.title).length");assert.equal(unlabeled,0);pass('All buttons have accessible names');
  assert.deepEqual(errors,[]);pass('No unhandled browser exceptions');
  await writeFile(`${output}/browser-results.json`,JSON.stringify({passed:results.length,results,errors},null,2));console.log(`${results.length} browser checks passed.`);
-}finally{if(socket?.readyState===1)socket.close();browser.kill();}
+}finally{if(socket?.readyState===1){try{socket.send(JSON.stringify({id:999999,method:'Browser.close'}));}catch{}socket.close();}browser.kill();browser.stderr.destroy();}

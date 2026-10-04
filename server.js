@@ -34,6 +34,7 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
   if(url.protocol!=='https:'||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw Error('Public URLs must be HTTPS origins.');
   publicOrigins.set(url.host,url.origin);
  }
+ if(apiKey&&publicOrigins.size&&!auth)throw Error('Public AI requires DATABASE_URL and POCKET_ACCESS_PASSWORD so provider requests require sign-in.');
  return http.createServer(async(req,res)=>{
   if(req.url==='/health'&&req.method==='GET'){json(res,200,{status:'ok'});return;}
   const host=req.headers.host||'';
@@ -44,14 +45,15 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
   try{
    url.pathname=decodeURIComponent(url.pathname);
    const loginPage=url.pathname==='/login'||url.pathname==='/login.html';
-   if(url.pathname==='/api/auth/login'||url.pathname==='/api/auth/logout'){
+   if(['/api/auth/login','/api/auth/logout','/api/auth/register'].includes(url.pathname)){
     if(!auth){json(res,404,{error:'Sign-in is not enabled in browser storage mode.'});return;}
     if(req.method!=='POST'){json(res,405,{error:'Method not allowed.'});return;}
-    await auth[url.pathname.endsWith('/login')?'login':'logout'](req,res,origin,json);return;
+    await auth[url.pathname.split('/').at(-1)](req,res,origin,json);return;
    }
    if(loginPage&&!auth){res.writeHead(303,{...security,Location:'/'});res.end();return;}
+   let signedIn=null;
    if(auth&&(url.pathname==='/'||url.pathname==='/index.html'||url.pathname.startsWith('/api/')||loginPage)){
-    const signedIn=await auth.authenticated(req,origin);
+    signedIn=await auth.authenticated(req,origin);
     if(loginPage&&signedIn){res.writeHead(303,{...security,Location:'/'});res.end();return;}
     if(!signedIn&&!loginPage){
      if(url.pathname.startsWith('/api/'))json(res,401,{error:'Your session has ended. Sign in again to continue.',login:'/login'});
@@ -59,9 +61,11 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
      return;
     }
    }
-   if(url.pathname==='/api/capabilities'&&req.method==='GET'){json(res,200,{ai:!!apiKey,ocr:'browser',storage:store?'database':'browser'});return;}
+   if(url.pathname==='/api/capabilities'&&req.method==='GET'){json(res,200,{ai:!!apiKey,ocr:'browser',storage:store?'database':'browser',user:signedIn?{id:signedIn.id,username:signedIn.username,legacy:signedIn.legacy}:null});return;}
    if(url.pathname==='/api/workspace'&&store){
-    if(req.method==='GET'){json(res,200,await store.read());return;}
+    // A tab opened by one account must not save into an account signed in later.
+    if(req.headers['x-pocket-user']&&req.headers['x-pocket-user']!==(signedIn.id||'legacy')){json(res,409,{error:'The signed-in account changed. Reload before opening or saving records.'});return;}
+    if(req.method==='GET'){json(res,200,await store.read(signedIn.workspaceId));return;}
     if(req.method!=='PUT'){json(res,405,{error:'Method not allowed.'});return;}
     if(req.headers.origin!==origin){json(res,403,{error:'This request must come from Pocket.'});return;}
     if(!req.headers['content-type']?.startsWith('application/json')){json(res,415,{error:'Expected JSON.'});return;}
@@ -69,7 +73,7 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
     let payload;try{payload=JSON.parse(raw);}catch{json(res,400,{error:'Invalid workspace data.'});return;}
     if(!Number.isSafeInteger(payload?.revision)||payload.revision<0){json(res,400,{error:'Invalid workspace revision.'});return;}
     let next;try{next=validateState(payload.state);}catch(error){json(res,400,{error:error.message});return;}
-    const revision=await store.write(payload.revision,next);
+    const revision=await store.write(payload.revision,next,signedIn.workspaceId);
     if(revision===null){json(res,409,{error:'This workspace changed. Reload to see the latest version.'});return;}
     json(res,200,{revision});return;
    }
