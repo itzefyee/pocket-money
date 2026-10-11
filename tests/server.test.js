@@ -20,7 +20,7 @@ test('server exposes app but not secrets or source tests',()=>withServer({apiKey
 }));
 test('Vercel handler keeps requests behind the configured deployment origin',async()=>{
  const config=JSON.parse(await readFile(new URL('../vercel.json',import.meta.url),'utf8'));
- assert.equal(config.routes.at(-1).dest,'/api/index.js?__pocket_path=$1');assert.match(config.functions['api/index.js'].includeFiles,/index\.html/);
+ assert.equal(config.outputDirectory,null);assert.equal(config.routes.at(-1).dest,'/api/index.js?__pocket_path=$1');assert.match(config.functions['api/index.js'].includeFiles,/index\.html/);
  const handler=createVercelHandler({env:{VERCEL:'1',VERCEL_URL:'pocket-test.vercel.app'}});
  await withHandler(handler,async url=>{
   assert.equal((await requestDetail(url+'/api/index.js?__pocket_path=',{headers:{Host:'pocket-test.vercel.app'}})).status,200);
