@@ -114,6 +114,7 @@ test('configured custom domain serves the app and accepts only its own HTTPS ori
 }));
 test('public assets support compressed transfers and conditional caching, while APIs remain uncached',()=>withServer({apiKey:''},async url=>{
  const response=await fetch(url+'/app.js',{headers:{'Accept-Encoding':'gzip'}});assert.equal(response.status,200);assert.equal(response.headers.get('content-encoding'),'gzip');assert.match(await response.text(),/createMoneyAssistant/);
+ assert.equal(response.headers.get('content-security-policy'),"default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net");
  const etag=response.headers.get('etag');assert.ok(etag);assert.equal(response.headers.get('cache-control'),'private, no-cache');
  const unchanged=await fetch(url+'/app.js',{headers:{'If-None-Match':etag}});assert.equal(unchanged.status,304);assert.equal(await unchanged.text(),'');
  assert.equal((await fetch(url+'/format.js')).status,200);assert.equal((await fetch(url+'/api/capabilities')).headers.get('cache-control'),'no-store');

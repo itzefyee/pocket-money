@@ -14,7 +14,7 @@ const root=fileURLToPath(new URL('.',import.meta.url));
 const publicFiles=new Set(['index.html','login.html','login.css','login.js','styles.css','app.js','navigation.js','capture.js','domain.js','seed.js','icons.js','favicon.svg','assets/manrope.woff2','assets/OFL.txt','assistant-query.js','assistant-ui.js','assistant.css','format.js']);
 const gzip=promisify(gzipCallback);
 const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.woff2':'font/woff2','.txt':'text/plain; charset=utf-8'};
-const security={'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Cache-Control':'no-store','Permissions-Policy':'camera=(self), microphone=(self), geolocation=()'};
+const security={'Content-Security-Policy':"default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net",'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Cache-Control':'no-store','Permissions-Policy':'camera=(self), microphone=(self), geolocation=()'};
 function json(res,status,body){if(res.destroyed)return;res.writeHead(status,{...security,'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(body));}
 export function normalizeExtraction(value){
  if(!value||typeof value!=='object')throw Error('AI returned unreadable fields. Try local OCR or manual entry.');

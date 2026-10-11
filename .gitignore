@@ -5,5 +5,6 @@
 node_modules/
 .browser-profile*/
 .impeccable/review/
+.performance-audit/
 .DS_Store
 Thumbs.db
