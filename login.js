@@ -3,7 +3,7 @@ const password=document.querySelector('#password');
 const error=document.querySelector('#login-error');
 const submit=form.querySelector('[type=submit]');
 const label=submit.querySelector('span');
-let pending=false,register=false;
+let pending=false,register=true;
 const switcher=document.querySelector('#account-switch');
 switcher.addEventListener('click',()=>{
  if(pending)return;register=!register;error.textContent='';password.value='';password.removeAttribute('aria-invalid');

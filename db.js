@@ -63,16 +63,17 @@ export async function createPostgresStore(connectionString,{schema='pocket'}={})
   });
  }catch(error){await pool.end();throw error;}
  return {
-  async createSession(tokenHash,passwordTag,expiresAt,userId=null){
+  async createSession(tokenHash,expiresAt,userId){
+   if(!userId)throw Error('Account sessions require a user ID.');
    await transaction(async client=>{
     await query(client,'DELETE FROM pocket.sessions WHERE expires_at <= now()');
-    await query(client,'INSERT INTO pocket.sessions (token_hash,password_tag,expires_at,user_id) VALUES ($1,$2,$3,$4)',[tokenHash,passwordTag,expiresAt,userId]);
+    await query(client,'INSERT INTO pocket.sessions (token_hash,expires_at,user_id) VALUES ($1,$2,$3)',[tokenHash,expiresAt,userId]);
    });
   },
-  async getSession(tokenHash,passwordTag){
+  async getSession(tokenHash){
    const result=await query(pool,`SELECT u.id,u.username,u.workspace_id FROM pocket.sessions s
-    LEFT JOIN pocket.users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.password_tag=$2 AND s.expires_at>now()`,[tokenHash,passwordTag]);
-   const row=result.rows[0];return row?(row.id?{id:row.id,username:row.username,workspaceId:Number(row.workspace_id),legacy:false}:{id:null,username:'pocket',workspaceId:1,legacy:true}):null;
+    JOIN pocket.users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()`,[tokenHash]);
+   const row=result.rows[0];return row?{id:row.id,username:row.username,workspaceId:Number(row.workspace_id)}:null;
   },
   async findUser(username){
    const result=await query(pool,'SELECT id,username,password_hash AS "passwordHash",workspace_id AS "workspaceId" FROM pocket.users WHERE username=$1',[username]);
@@ -85,12 +86,8 @@ export async function createPostgresStore(connectionString,{schema='pocket'}={})
     const workspaceId=Number(result.rows[0].id);
     await query(client,'INSERT INTO pocket.users (id,username,password_hash,workspace_id) VALUES ($1,$2,$3,$4)',[id,username,passwordHash,workspaceId]);
     await saveEntities(client,state,workspaceId);
-    return {id,username,workspaceId,legacy:false};
+    return {id,username,workspaceId};
    });
-  },
-  async hasSession(tokenHash,passwordTag){
-   const result=await query(pool,'SELECT 1 FROM pocket.sessions WHERE token_hash=$1 AND password_tag=$2 AND expires_at>now()',[tokenHash,passwordTag]);
-   return result.rowCount===1;
   },
   async deleteSession(tokenHash){await query(pool,'DELETE FROM pocket.sessions WHERE token_hash=$1',[tokenHash]);},
   async read(workspaceId=1){

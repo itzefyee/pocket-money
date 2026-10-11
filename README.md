@@ -34,7 +34,7 @@ The deployed app runs without a Gemini key, so optional AI extraction and unders
 Without a database, each browser keeps its own sample and personal workspaces in localStorage.
 Records from `127.0.0.1` do not automatically appear at the Render address; use Settings backup and restore if you want to move them.
 The Render URL is publicly reachable. Without database mode, Pocket has no access control, so use it only with data you are comfortable keeping in that browser and do not add a shared `GEMINI_API_KEY` to the public service.
-Pocket refuses to start when a public URL and `GEMINI_API_KEY` are configured without both `DATABASE_URL` and `POCKET_ACCESS_PASSWORD`.
+Pocket refuses to start when a public URL and `GEMINI_API_KEY` are configured without `DATABASE_URL` because provider requests must require account sign-in.
 Render's free service may take time to respond after inactivity.
 
 ## Deploy on Vercel
@@ -52,9 +52,9 @@ This exposes `VERCEL_URL`, allowing Pocket to accept the HTTPS origin for each g
 If you attach a custom domain, set `POCKET_PUBLIC_URL` to its exact HTTPS origin, such as `https://pocket.example`.
 Keep `POCKET_PUBLIC_URL` free of paths, query strings, fragments, usernames, and passwords.
 
-For database mode, set `DATABASE_URL` and `POCKET_ACCESS_PASSWORD` in Vercel for every environment you intend to use.
-Use the Neon pooled connection string with `sslmode=verify-full`, and make the Pocket access password at least 16 characters.
-Set `GEMINI_API_KEY` only when database mode and a strong access password are both configured.
+For database mode, set `DATABASE_URL` in Vercel for every environment you intend to use.
+Use the Neon pooled connection string with `sslmode=verify-full`.
+Set `GEMINI_API_KEY` only when database mode is configured.
 The key remains server-side and is not exposed to browser code.
 
 Vercel Functions accept request and response bodies up to 4.5 MB.
@@ -71,10 +71,9 @@ The Node server connects using the existing `pg` driver and `DATABASE_URL`, foll
 Create a project in the [Neon Console](https://console.neon.tech), choose a region near your Render service, and open **Connect**.
 Select the database and role, enable **Connection pooling**, and copy the connection string.
 The pooled hostname contains `-pooler`; Pocket's queries work with [Neon's transaction pooling](https://neon.com/docs/connect/connection-pooling).
-Set both `DATABASE_URL` and `POCKET_ACCESS_PASSWORD` on the server, then restart.
+Set `DATABASE_URL` on the server, then restart.
 Use `sslmode=verify-full` in the connection string to require TLS and verify the database server's certificate.
-The Pocket password must have at least 16 characters and should differ from the Neon database password.
-Open Pocket to see the on-page sign-in form, with username `pocket` already filled in.
+Open Pocket to create an account, then use that account's username and password to sign in.
 To start fresh, choose **Create an account**, enter your name, choose a unique username and a password of at least 12 characters, then choose **Create my Pocket**.
 Usernames contain 3-32 letters, numbers, underscores or dashes, are case-insensitive, and cannot use the reserved name `pocket`.
 Registration signs you in and opens your own personal ledger with zero balances, no transactions, no budgets and no savings goals.
@@ -84,10 +83,7 @@ Other people can register on the same deployment and get separate personal ledge
 Each account can explore the sample workspace separately from its personal records.
 Sign in again with the username and password you chose.
 Password reset and account deletion are not available yet.
-The original `pocket` login still accepts `POCKET_ACCESS_PASSWORD` and opens the existing workspace, preserving its records.
-Everyone who knows that original access password can open that original workspace, so use your own account for personal records.
 Incorrect details show an inline error without opening a browser password prompt.
-The original login password is the server's `POCKET_ACCESS_PASSWORD`, not your Neon or Render account password.
 Registered passwords are stored as salted scrypt hashes using [Node's crypto API](https://nodejs.org/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback).
 Sessions last seven days, survive server restarts, and use an HttpOnly, SameSite cookie with Secure enabled on HTTPS.
 Only a hash of the random session token is stored in Neon; the password is never saved in browser storage.
@@ -95,8 +91,6 @@ Open the profile menu and choose **Sign out** to revoke the current session.
 The profile control appears in the sidebar on desktop and the top bar on mobile, with only one visible at a time.
 The profile menu also offers Settings, a backup download, and switching between personal and sample workspaces.
 Use the sidebar button beside the desktop breadcrumbs to collapse or expand navigation; Pocket remembers your choice in this browser.
-Changing `POCKET_ACCESS_PASSWORD` and restarting invalidates existing sessions on every device, including registered-user sessions.
-Registered users can then sign in again with their own unchanged passwords.
 Use HTTPS for any public address.
 The sample workspace stays in each browser; only the personal workspace is stored in PostgreSQL.
 Database mode creates the `pocket` schema and eight tables at startup: `users`, `workspaces`, `settings`, `accounts`, `transactions`, `budgets`, `goals`, and `sessions`.
@@ -116,10 +110,9 @@ For local development connected to Neon, copy `.env.example` to `.env`, then rep
 
 ```text
 DATABASE_URL=postgresql://neondb_owner:YOUR_PASSWORD@ep-YOUR_ENDPOINT-pooler.YOUR_REGION.aws.neon.tech/neondb?sslmode=verify-full
-POCKET_ACCESS_PASSWORD=choose-a-long-unique-password
 ```
 
-For Render, set `DATABASE_URL` on the web service to the Neon connection string and set `POCKET_ACCESS_PASSWORD` as a secret environment variable, then redeploy.
+For Render, set `DATABASE_URL` on the web service to the Neon connection string, then redeploy.
 Neon hosts the database; Render hosts the app.
 The Blueprint installs dependencies, runs checks, and deploys the web service; it does not create a Neon project or set database credentials for you.
 Keep both secrets out of Git and keep regular JSON backups from Settings.

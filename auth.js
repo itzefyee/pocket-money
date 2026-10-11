@@ -1,4 +1,4 @@
-﻿import {createHash,createHmac,randomBytes,timingSafeEqual,scrypt as scryptCallback} from 'node:crypto';
+﻿import {createHash,randomBytes,timingSafeEqual,scrypt as scryptCallback} from 'node:crypto';
 import {promisify} from 'node:util';
 
 const sessionSeconds=7*24*60*60;
@@ -13,9 +13,7 @@ async function verifyPassword(password,stored){
  return timingSafeEqual(actual,expected)&&!!stored;
 }
 
-export function createSessionAuth(password,store){
- const passwordHash=Buffer.from(digest(password),'hex');
- const passwordTag=createHmac('sha256',password).update('Pocket session version').digest('hex');
+export function createSessionAuth(store){
  const attempts=new Map();let active=0;
  const cookieName=origin=>origin.startsWith('https:')?'__Host-pocket-session':'pocket-session';
  function token(req,origin){
@@ -25,7 +23,7 @@ export function createSessionAuth(password,store){
  function cookie(origin,value,maxAge){return `${cookieName(origin)}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${origin.startsWith('https:')?'; Secure':''}`;}
  async function session(res,origin,json,user){
   const value=randomBytes(32).toString('hex');
-  await store.createSession(digest(value),passwordTag,new Date(Date.now()+sessionSeconds*1000),user?.id||null);
+  await store.createSession(digest(value),new Date(Date.now()+sessionSeconds*1000),user.id);
   res.setHeader('Set-Cookie',cookie(origin,value,sessionSeconds));json(res,200,{redirect:'/'});
  }
  async function authenticate(req,res,origin,json,register){
@@ -54,9 +52,8 @@ export function createSessionAuth(password,store){
     let user;try{user=await store.createUser(username,passwordHash,name);}catch(error){if(error.code==='23505'){json(res,409,{error:'That username is already taken. Choose another one.'});return;}throw error;}
     attempt.count=0;await session(res,origin,json,user);return;
    }
-   let user=null,valid=false;
-   if(username==='pocket')valid=timingSafeEqual(Buffer.from(digest(supplied),'hex'),passwordHash);
-   else{user=await store.findUser?.(username);valid=await verifyPassword(supplied,user?.passwordHash);}
+   const user=await store.findUser?.(username);
+   const valid=await verifyPassword(supplied,user?.passwordHash);
    if(!valid){json(res,401,{error:'That username or password is incorrect. Please try again.'});return;}
    attempt.count=0;await session(res,origin,json,user);
   }finally{active--;}
@@ -64,8 +61,7 @@ export function createSessionAuth(password,store){
  return {
   async authenticated(req,origin){
    const value=token(req,origin);if(!value)return null;
-   if(store.getSession)return store.getSession(digest(value),passwordTag);
-   return await store.hasSession(digest(value),passwordTag)?{id:null,username:'pocket',workspaceId:1,legacy:true}:null;
+   return store.getSession?store.getSession(digest(value)):null;
   },
   login:(req,res,origin,json)=>authenticate(req,res,origin,json,false),
   register:(req,res,origin,json)=>authenticate(req,res,origin,json,true),

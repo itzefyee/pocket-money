@@ -10,18 +10,18 @@ function accountStore(){
   findUser:async username=>users.get(username),
   createUser:async(username,passwordHash,name)=>{
    if(users.has(username))throw Object.assign(Error('Duplicate'),{code:'23505'});
-   const user={id:String(next),workspaceId:next++,username,passwordHash,legacy:false};users.set(username,user);
+   const user={id:String(next),workspaceId:next++,username,passwordHash};users.set(username,user);
    const state=emptyState();state.settings.name=name;state.budgets={};workspaces.set(user.workspaceId,{revision:1,state});return user;
   },
-  createSession:async(token,tag,expires,id)=>sessions.set(token,{tag,expires,user:id?[...users.values()].find(u=>u.id===id):{id:null,username:'pocket',workspaceId:1,legacy:true}}),
-  getSession:async(token,tag)=>{const s=sessions.get(token);return s?.tag===tag&&s.expires>Date.now()?s.user:null;},
+  createSession:async(token,expires,id)=>sessions.set(token,{expires,user:[...users.values()].find(u=>u.id===id)}),
+  getSession:async token=>{const s=sessions.get(token);return s?.expires>Date.now()?s.user:null;},
   deleteSession:async token=>sessions.delete(token),
   read:async id=>structuredClone(workspaces.get(id)),
   write:async(revision,state,id)=>{const w=workspaces.get(id);if(w.revision!==revision)return null;workspaces.set(id,{revision:revision+1,state});return revision+1;}
  };
 }
 test('registration creates private ledgers, validates credentials and protects account switches',async()=>{
- const server=createServer({store:accountStore(),accessPassword:'original private password',apiKey:'',publicUrl:'',customUrl:''});
+ const server=createServer({store:accountStore(),apiKey:'',publicUrl:'',customUrl:''});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const url=`http://127.0.0.1:${server.address().port}`;
  const post=(path,body,headers={})=>fetch(url+path,{method:'POST',headers:{Origin:url,'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
  const alice={username:' Alice ',name:'Alice',password:'my own strong password'};
@@ -40,7 +40,7 @@ test('registration creates private ledgers, validates credentials and protects a
   const bob=await post('/api/auth/register',{username:'bob',name:'Bob',password:alice.password});assert.equal(bob.status,200);
   const bobCookie=bob.headers.get('set-cookie').split(';')[0];
   const aliceUser=(await(await fetch(url+'/api/capabilities',{headers:{Cookie:cookie}})).json()).user;
-  assert.equal(aliceUser.username,'alice');assert.equal(aliceUser.legacy,false);assert.equal('passwordHash' in aliceUser,false);
+  assert.equal(aliceUser.username,'alice');assert.equal('passwordHash' in aliceUser,false);
   const state=first.state;state.transactions.push({id:'private',date:'2026-10-04',merchant:'Private purchase',amount:1250,type:'expense',category:'Other',account:'cash',note:''});
   const save=await fetch(url+'/api/workspace',{method:'PUT',headers:{Origin:url,'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify({revision:1,state,workspaceId:3,userId:'3'})});assert.equal(save.status,200);
   assert.equal((await read(bobCookie)).state.transactions.length,0);

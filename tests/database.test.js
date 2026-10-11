@@ -9,15 +9,18 @@ test('existing single-workspace schema migrates without losing records and isola
  const {Pool}=await import('pg');const connectionString=process.env.POCKET_TEST_DATABASE_URL;
  const schema='pocket_test_'+randomUUID().replaceAll('-','');const pool=new Pool({connectionString});let store;
  try{
-  const original=(await readFile(new URL('../schema.sql',import.meta.url),'utf8')).split('-- Keep workspace 1')[0];
+  const original=(await readFile(new URL('../schema.sql',import.meta.url),'utf8')).split('-- Migrate the shared-password session table')[0];
   await pool.query(original.replace(/\bpocket\b/g,schema));
+  await pool.query(`ALTER TABLE ${schema}.sessions ADD COLUMN password_tag text NOT NULL DEFAULT 'version'`);
   await pool.query(`INSERT INTO ${schema}.workspaces (id,revision) VALUES (1,1);
    INSERT INTO ${schema}.settings (workspace_id,name,currency) VALUES (1,'Original owner','MYR');
    INSERT INTO ${schema}.accounts (workspace_id,id,name,opening_cents,position) VALUES (1,'cash','Cash',12345,1);
    INSERT INTO ${schema}.sessions (token_hash,password_tag,expires_at) VALUES ('original-session','version',now()+interval '1 day')`);
   store=await createPostgresStore(connectionString,{schema});
   const originalWorkspace=await store.read();assert.equal(originalWorkspace.state.accounts[0].opening,12345);
-  assert.equal((await store.getSession('original-session','version')).workspaceId,1);
+  assert.equal(await store.getSession('original-session'),null);
+  assert.equal((await pool.query(`SELECT 1 FROM information_schema.columns WHERE table_schema=$1 AND table_name='sessions' AND column_name='password_tag'`,[schema])).rowCount,0);
+  assert.equal((await pool.query(`SELECT is_nullable FROM information_schema.columns WHERE table_schema=$1 AND table_name='sessions' AND column_name='user_id'`,[schema])).rows[0].is_nullable,'NO');
   const alice=await store.createUser('alice','hashed-password','Alice');const bob=await store.createUser('bob','another-hash','Bob');
   assert.notEqual(alice.workspaceId,bob.workspaceId);assert.notEqual(alice.workspaceId,1);
   const fresh=await store.read(alice.workspaceId);assert.equal(fresh.state.settings.name,'Alice');assert.deepEqual(fresh.state.budgets,{});
@@ -26,12 +29,12 @@ test('existing single-workspace schema migrates without losing records and isola
   assert.equal((await store.read(bob.workspaceId)).state.accounts[0].opening,0);assert.deepEqual(await store.read(),originalWorkspace);
   await assert.rejects(store.createUser('alice','duplicate','Duplicate'),e=>e.code==='23505');
   const counts=await pool.query(`SELECT count(*)::int AS count FROM ${schema}.workspaces`);assert.equal(counts.rows[0].count,3);
-  await store.createSession('alice-session','version',new Date(Date.now()+60000),alice.id);
-  assert.equal((await store.getSession('alice-session','version')).workspaceId,alice.workspaceId);
+  await store.createSession('alice-session',new Date(Date.now()+60000),alice.id);
+  assert.equal((await store.getSession('alice-session')).workspaceId,alice.workspaceId);
   await store.close();store=await createPostgresStore(connectionString,{schema});
   assert.equal((await store.findUser('alice')).passwordHash,'hashed-password');
   assert.equal((await store.read(alice.workspaceId)).state.accounts[0].opening,5000);
-  assert.equal((await store.getSession('alice-session','version')).id,alice.id);
+  assert.equal((await store.getSession('alice-session')).id,alice.id);
   assert.deepEqual(await store.read(),originalWorkspace);
  }finally{
   await store?.close();assert.match(schema,/^pocket_test_[a-f0-9]{32}$/);
@@ -47,11 +50,11 @@ test('Postgres preserves all records, commits atomically, rejects stale saves an
  let store;
  try{
   store=await createPostgresStore(connectionString,{schema});
-  await store.createSession('session-hash','password-version',new Date(Date.now()+60000));
-  await store.createSession('expired-hash','password-version',new Date(0));
-  assert.equal(await store.hasSession('session-hash','password-version'),true);
-  assert.equal(await store.hasSession('session-hash','wrong-version'),false);
-  assert.equal(await store.hasSession('expired-hash','password-version'),false);
+  const user=await store.createUser('alice','hashed-password','Alice');
+  await store.createSession('session-hash',new Date(Date.now()+60000),user.id);
+  await store.createSession('expired-hash',new Date(0),user.id);
+  assert.equal((await store.getSession('session-hash')).id,user.id);
+  assert.equal(await store.getSession('expired-hash'),null);
   assert.deepEqual(await store.read(),{revision:0,state:null});
   const initial=demoState();
   initial.transactions.push({id:'transfer',date:'2026-10-03',merchant:'Move savings',amount:1250,type:'transfer',category:'Other',account:'bank',toAccount:'cash',note:'',source:'Test'});
@@ -79,8 +82,8 @@ test('Postgres preserves all records, commits atomically, rejects stale saves an
   trimmed.accounts=trimmed.accounts.filter(a=>a.id!=='cash');trimmed.goals=[];trimmed.budgets={};
   assert.equal(await store.write(2,trimmed),3);
   await store.close();store=await createPostgresStore(connectionString,{schema});
-  assert.equal(await store.hasSession('session-hash','password-version'),true);
-  await store.deleteSession('session-hash');assert.equal(await store.hasSession('session-hash','password-version'),false);
+  assert.equal((await store.getSession('session-hash')).id,user.id);
+  await store.deleteSession('session-hash');assert.equal(await store.getSession('session-hash'),null);
   assert.deepEqual(await store.read(),{revision:3,state:trimmed});
   assert.equal(await store.write(0,initial),null);
  }finally{

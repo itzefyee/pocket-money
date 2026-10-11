@@ -14,10 +14,9 @@ export function createVercelHandler({env=process.env,createStore=createPostgresS
  let app;
  async function server(){
   if(!app){
-   if(!!env.DATABASE_URL!==!!env.POCKET_ACCESS_PASSWORD)throw Error('Set DATABASE_URL and POCKET_ACCESS_PASSWORD together.');
    const deploymentOrigin=vercelOrigin(env.VERCEL_URL);
    const store=env.DATABASE_URL?await createStore(env.DATABASE_URL):null;
-   app=createServer({apiKey:env.GEMINI_API_KEY||'',model:env.GEMINI_MODEL||'gemini-2.5-flash',publicUrl:deploymentOrigin||env.RENDER_EXTERNAL_URL||env.POCKET_PUBLIC_URL||'',customUrl:env.POCKET_PUBLIC_URL||'',store,accessPassword:env.POCKET_ACCESS_PASSWORD||'',maxAiImageBytes:env.VERCEL?3*1024*1024:null});
+   app=createServer({apiKey:env.GEMINI_API_KEY||'',model:env.GEMINI_MODEL||'gemini-2.5-flash',publicUrl:deploymentOrigin||env.RENDER_EXTERNAL_URL||env.POCKET_PUBLIC_URL||'',customUrl:env.POCKET_PUBLIC_URL||'',store,maxAiImageBytes:env.VERCEL?3*1024*1024:null});
   }
   return app;
  }

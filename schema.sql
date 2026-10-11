@@ -1,7 +1,6 @@
 CREATE SCHEMA IF NOT EXISTS pocket;
 CREATE TABLE IF NOT EXISTS pocket.sessions (
  token_hash text PRIMARY KEY,
- password_tag text NOT NULL,
  expires_at timestamptz NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON pocket.sessions (expires_at);
@@ -64,7 +63,7 @@ CREATE TABLE IF NOT EXISTS pocket.goals (
  PRIMARY KEY (workspace_id, id)
 );
 
--- Keep workspace 1 and its sessions for the original Pocket login.
+-- Migrate the shared-password session table to account-only sessions.
 DO $$
 BEGIN
  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='pocket' AND table_name='workspaces' AND column_name='id' AND data_type='smallint') THEN
@@ -86,3 +85,6 @@ CREATE TABLE IF NOT EXISTS pocket.users (
  created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE pocket.sessions ADD COLUMN IF NOT EXISTS user_id text REFERENCES pocket.users(id);
+ALTER TABLE pocket.sessions DROP COLUMN IF EXISTS password_tag;
+DELETE FROM pocket.sessions WHERE user_id IS NULL;
+ALTER TABLE pocket.sessions ALTER COLUMN user_id SET NOT NULL;

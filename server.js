@@ -21,10 +21,8 @@ export function normalizeExtraction(value){
  let amount=null;try{if(value.amount!==null&&value.amount!==undefined)amount=cents(value.amount);}catch{}
  return {merchant:typeof value.merchant==='string'?value.merchant.slice(0,200):'',amount,date:validDate(value.date||'')?value.date:today(),category:CATEGORIES.includes(value.category)?value.category:'Other',type:value.type==='income'?'income':'expense',account:['bank','cash','ewallet'].includes(value.account)?value.account:'bank',note:'',source:'AI extraction'};
 }
-export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.env.GEMINI_MODEL||'gemini-2.5-flash',publicUrl=process.env.RENDER_EXTERNAL_URL,customUrl=process.env.POCKET_PUBLIC_URL,fetchImpl=fetch,store=null,accessPassword=process.env.POCKET_ACCESS_PASSWORD,maxAiImageBytes=process.env.VERCEL?3*1024*1024:null}={}){
- if(accessPassword&&!store)throw Error('POCKET_ACCESS_PASSWORD requires DATABASE_URL.');
- if(store&&(!accessPassword||accessPassword.length<16))throw Error('Database mode requires POCKET_ACCESS_PASSWORD with at least 16 characters.');
- const auth=store?createSessionAuth(accessPassword,store):null;
+export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.env.GEMINI_MODEL||'gemini-2.5-flash',publicUrl=process.env.RENDER_EXTERNAL_URL,customUrl=process.env.POCKET_PUBLIC_URL,fetchImpl=fetch,store=null,maxAiImageBytes=process.env.VERCEL?3*1024*1024:null}={}){
+ const auth=store?createSessionAuth(store):null;
  let active=0;
  const assets=new Map();
  const assistantHandler=createAssistantHandler({apiKey,model,fetchImpl,json});
@@ -34,7 +32,7 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
   if(url.protocol!=='https:'||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw Error('Public URLs must be HTTPS origins.');
   publicOrigins.set(url.host,url.origin);
  }
- if(apiKey&&publicOrigins.size&&!auth)throw Error('Public AI requires DATABASE_URL and POCKET_ACCESS_PASSWORD so provider requests require sign-in.');
+ if(apiKey&&publicOrigins.size&&!auth)throw Error('Public AI requires DATABASE_URL so provider requests require sign-in.');
  return http.createServer(async(req,res)=>{
   if(req.url==='/health'&&req.method==='GET'){json(res,200,{status:'ok'});return;}
   const host=req.headers.host||'';
@@ -61,10 +59,10 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
      return;
     }
    }
-   if(url.pathname==='/api/capabilities'&&req.method==='GET'){json(res,200,{ai:!!apiKey,ocr:'browser',storage:store?'database':'browser',maxAiImageBytes,user:signedIn?{id:signedIn.id,username:signedIn.username,legacy:signedIn.legacy}:null});return;}
+   if(url.pathname==='/api/capabilities'&&req.method==='GET'){json(res,200,{ai:!!apiKey,ocr:'browser',storage:store?'database':'browser',maxAiImageBytes,user:signedIn?{id:signedIn.id,username:signedIn.username}:null});return;}
    if(url.pathname==='/api/workspace'&&store){
     // A tab opened by one account must not save into an account signed in later.
-    if(req.headers['x-pocket-user']&&req.headers['x-pocket-user']!==(signedIn.id||'legacy')){json(res,409,{error:'The signed-in account changed. Reload before opening or saving records.'});return;}
+    if(req.headers['x-pocket-user']&&req.headers['x-pocket-user']!==signedIn.id){json(res,409,{error:'The signed-in account changed. Reload before opening or saving records.'});return;}
     if(req.method==='GET'){json(res,200,await store.read(signedIn.workspaceId));return;}
     if(req.method!=='PUT'){json(res,405,{error:'Method not allowed.'});return;}
     if(req.headers.origin!==origin){json(res,403,{error:'This request must come from Pocket.'});return;}
@@ -113,8 +111,6 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  const port=Number(process.env.PORT||4317),host=process.env.RENDER_EXTERNAL_URL||process.env.POCKET_PUBLIC_URL?'0.0.0.0':'127.0.0.1';
- if(!!process.env.DATABASE_URL!==!!process.env.POCKET_ACCESS_PASSWORD)throw Error('Set DATABASE_URL and POCKET_ACCESS_PASSWORD together.');
- if(process.env.DATABASE_URL&&process.env.POCKET_ACCESS_PASSWORD.length<16)throw Error('POCKET_ACCESS_PASSWORD must have at least 16 characters.');
  const store=process.env.DATABASE_URL?await createPostgresStore(process.env.DATABASE_URL):null;
  createServer({store}).listen(port,host,()=>console.log(`Pocket is ready at ${process.env.POCKET_PUBLIC_URL||process.env.RENDER_EXTERNAL_URL||`http://127.0.0.1:${port}`}\nStorage: ${store?'PostgreSQL':'browser'}\nAI extraction: ${process.env.GEMINI_API_KEY?'configured':'not configured (local OCR available)'}`));
 }
