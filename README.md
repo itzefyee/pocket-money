@@ -44,7 +44,8 @@ Every Vercel request goes through the existing Pocket server, preserving its sta
 
 Import the GitHub repository into Vercel and leave the Framework Preset as Other.
 Vercel runs `npm ci`, `npm test`, and `npm run check` using the repository configuration before deployment.
-The committed `outputDirectory: null` setting clears any stale Vercel dashboard output-directory override and ensures the function, not a static folder, serves the application.
+The committed `outputDirectory: "public"` setting satisfies Vercel's output requirement with a crawler policy only.
+Pocket's catch-all route still sends application requests to the function rather than serving the app as static files.
 
 Enable Automatically expose System Environment Variables in the Vercel project settings.
 This exposes `VERCEL_URL`, allowing Pocket to accept the HTTPS origin for each generated Vercel deployment while keeping unknown hostnames rejected.
