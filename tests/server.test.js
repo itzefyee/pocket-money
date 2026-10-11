@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import {readFile} from 'node:fs/promises';
 import {createServer,normalizeExtraction} from '../server.js';
+import {createVercelHandler} from '../api/index.js';
 import {emptyState} from '../seed.js';
 
 function sessionStore(store={}){const sessions=new Map();return Object.assign(store,{createSession:async(id,tag,expires)=>sessions.set(id,{tag,expires}),hasSession:async(id,tag)=>sessions.get(id)?.tag===tag&&sessions.get(id).expires>Date.now(),deleteSession:async id=>sessions.delete(id)});}
@@ -11,9 +13,23 @@ async function signIn(url,password='a very long private password'){
  assert.equal(response.status,200);return response.headers.get('set-cookie').split(';')[0];
 }
 function request(url,{method='GET',headers={},body}={}){return new Promise((resolve,reject)=>{const req=http.request(url,{method,headers},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});req.on('error',reject);req.end(body);});}
+function requestDetail(url,{method='GET',headers={},body}={}){return new Promise((resolve,reject)=>{const req=http.request(url,{method,headers},res=>{let text='';res.on('data',chunk=>text+=chunk);res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,text}));});req.on('error',reject);req.end(body);});}
+async function withHandler(handler,fn){const server=http.createServer(handler);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const url=`http://127.0.0.1:${server.address().port}`;try{await fn(url);}finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}}
 test('server exposes app but not secrets or source tests',()=>withServer({apiKey:''},async url=>{
  assert.equal((await fetch(url)).status,200);assert.equal((await fetch(url+'/.env')).status,404);assert.equal((await fetch(url+'/server.js')).status,404);assert.equal((await fetch(url+'/db.js')).status,404);assert.equal((await fetch(url+'/tests/domain.test.js')).status,404);assert.equal((await(await fetch(url+'/api/capabilities')).json()).ai,false);
 }));
+test('Vercel handler keeps requests behind the configured deployment origin',async()=>{
+ const config=JSON.parse(await readFile(new URL('../vercel.json',import.meta.url),'utf8'));
+ assert.equal(config.routes.at(-1).dest,'/api/index.js?__pocket_path=$1');assert.match(config.functions['api/index.js'].includeFiles,/index\.html/);
+ const handler=createVercelHandler({env:{VERCEL:'1',VERCEL_URL:'pocket-test.vercel.app'}});
+ await withHandler(handler,async url=>{
+  assert.equal((await requestDetail(url+'/api/index.js?__pocket_path=',{headers:{Host:'pocket-test.vercel.app'}})).status,200);
+  assert.equal((await requestDetail(url+'/api/index.js?__pocket_path=app.js',{headers:{Host:'pocket-test.vercel.app'}})).headers['content-type'],'text/javascript; charset=utf-8');
+  const capabilities=await requestDetail(url+'/api/index.js?__pocket_path=api/capabilities',{headers:{Host:'pocket-test.vercel.app'}});
+  assert.equal(JSON.parse(capabilities.text).maxAiImageBytes,3*1024*1024);
+  assert.equal((await request(url,{headers:{Host:'other.example'}})),403);
+ });
+});
 test('database mode shows an on-page login and protects private pages and records',async()=>{
  const store={read:async()=>({revision:0,state:null}),write:async()=>1};
  assert.throws(()=>createServer({store:null,accessPassword:'a very long private password'}),/requires DATABASE_URL/);

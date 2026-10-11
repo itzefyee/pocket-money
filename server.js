@@ -21,7 +21,7 @@ export function normalizeExtraction(value){
  let amount=null;try{if(value.amount!==null&&value.amount!==undefined)amount=cents(value.amount);}catch{}
  return {merchant:typeof value.merchant==='string'?value.merchant.slice(0,200):'',amount,date:validDate(value.date||'')?value.date:today(),category:CATEGORIES.includes(value.category)?value.category:'Other',type:value.type==='income'?'income':'expense',account:['bank','cash','ewallet'].includes(value.account)?value.account:'bank',note:'',source:'AI extraction'};
 }
-export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.env.GEMINI_MODEL||'gemini-2.5-flash',publicUrl=process.env.RENDER_EXTERNAL_URL,customUrl=process.env.POCKET_PUBLIC_URL,fetchImpl=fetch,store=null,accessPassword=process.env.POCKET_ACCESS_PASSWORD}={}){
+export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.env.GEMINI_MODEL||'gemini-2.5-flash',publicUrl=process.env.RENDER_EXTERNAL_URL,customUrl=process.env.POCKET_PUBLIC_URL,fetchImpl=fetch,store=null,accessPassword=process.env.POCKET_ACCESS_PASSWORD,maxAiImageBytes=process.env.VERCEL?3*1024*1024:null}={}){
  if(accessPassword&&!store)throw Error('POCKET_ACCESS_PASSWORD requires DATABASE_URL.');
  if(store&&(!accessPassword||accessPassword.length<16))throw Error('Database mode requires POCKET_ACCESS_PASSWORD with at least 16 characters.');
  const auth=store?createSessionAuth(accessPassword,store):null;
@@ -61,7 +61,7 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
      return;
     }
    }
-   if(url.pathname==='/api/capabilities'&&req.method==='GET'){json(res,200,{ai:!!apiKey,ocr:'browser',storage:store?'database':'browser',user:signedIn?{id:signedIn.id,username:signedIn.username,legacy:signedIn.legacy}:null});return;}
+   if(url.pathname==='/api/capabilities'&&req.method==='GET'){json(res,200,{ai:!!apiKey,ocr:'browser',storage:store?'database':'browser',maxAiImageBytes,user:signedIn?{id:signedIn.id,username:signedIn.username,legacy:signedIn.legacy}:null});return;}
    if(url.pathname==='/api/workspace'&&store){
     // A tab opened by one account must not save into an account signed in later.
     if(req.headers['x-pocket-user']&&req.headers['x-pocket-user']!==(signedIn.id||'legacy')){json(res,409,{error:'The signed-in account changed. Reload before opening or saving records.'});return;}

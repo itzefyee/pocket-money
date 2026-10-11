@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm ci",
+  "buildCommand": "npm test && npm run check",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "supportsCancellation": true,
+      "includeFiles": "{index.html,login.html,login.css,login.js,styles.css,app.js,navigation.js,capture.js,domain.js,seed.js,icons.js,favicon.svg,assistant-query.js,assistant-ui.js,assistant.css,format.js,schema.sql,assets/**}"
+    }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.js?__pocket_path=$1"
+    }
+  ]
+}

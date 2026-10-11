@@ -37,6 +37,32 @@ The Render URL is publicly reachable. Without database mode, Pocket has no acces
 Pocket refuses to start when a public URL and `GEMINI_API_KEY` are configured without both `DATABASE_URL` and `POCKET_ACCESS_PASSWORD`.
 Render's free service may take time to respond after inactivity.
 
+## Deploy on Vercel
+
+Pocket includes [vercel.json](vercel.json) and [api/index.js](api/index.js) for Vercel's Node.js Function runtime.
+Every Vercel request goes through the existing Pocket server, preserving its static-file allowlist, security headers, origin checks, authentication, and API behavior.
+
+Import the GitHub repository into Vercel and leave the Framework Preset as Other.
+Vercel runs `npm ci`, `npm test`, and `npm run check` using the repository configuration before deployment.
+Do not set an output directory because the function serves the application itself.
+
+Enable Automatically expose System Environment Variables in the Vercel project settings.
+This exposes `VERCEL_URL`, allowing Pocket to accept the HTTPS origin for each generated Vercel deployment while keeping unknown hostnames rejected.
+If you attach a custom domain, set `POCKET_PUBLIC_URL` to its exact HTTPS origin, such as `https://pocket.example`.
+Keep `POCKET_PUBLIC_URL` free of paths, query strings, fragments, usernames, and passwords.
+
+For database mode, set `DATABASE_URL` and `POCKET_ACCESS_PASSWORD` in Vercel for every environment you intend to use.
+Use the Neon pooled connection string with `sslmode=verify-full`, and make the Pocket access password at least 16 characters.
+Set `GEMINI_API_KEY` only when database mode and a strong access password are both configured.
+The key remains server-side and is not exposed to browser code.
+
+Vercel Functions accept request and response bodies up to 4.5 MB.
+On Vercel, Pocket limits optional AI receipt uploads to 3 MB before base64 encoding so the request stays within that platform limit.
+On-device OCR still accepts the normal 10 MB image limit because it does not upload the file to the function.
+
+Do not copy `.env` to Vercel or commit any deployment credentials.
+Vercel environment-variable changes require a new deployment before functions receive them.
+
 ## Private Neon database
 
 Pocket uses Neon Postgres to save a separate personal workspace for each registered user across their devices.
