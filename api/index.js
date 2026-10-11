@@ -22,7 +22,7 @@ export function createVercelHandler({env=process.env,createStore=createPostgresS
  }
  return async(req,res)=>{
   try{restoreRequestPath(req);(await server()).emit('request',req,res);}
-  catch{if(!res.headersSent){res.writeHead(500,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify({error:'Pocket could not start.'}));}}
+  catch(error){console.error('Pocket startup failed.',{code:error?.code,message:error instanceof Error?error.message:String(error)});if(!res.headersSent){res.writeHead(500,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify({error:'Pocket could not start.'}));}}
  };
 }
 

@@ -106,7 +106,7 @@ export function createServer({apiKey=process.env.GEMINI_API_KEY,model=process.en
    const wantsGzip=String(req.headers['accept-encoding']||'').split(',').some(value=>/^\s*gzip\s*(?:;\s*q=(?!0(?:\.0*)?\s*$)[0-9.]+)?\s*$/.test(value));
    const data=wantsGzip&&asset.compressed?asset.compressed:asset.data;if(data===asset.compressed)headers['Content-Encoding']='gzip';headers['Content-Length']=data.length;
    res.writeHead(200,headers);res.end(req.method==='HEAD'?undefined:data);
-  }catch{if(!res.headersSent)json(res,500,{error:'The request could not be completed.'});else res.end();}
+  }catch(error){console.error('Pocket request failed.',{method:req.method,path:url.pathname,code:error?.code,message:error instanceof Error?error.message:String(error)});if(!res.headersSent)json(res,500,{error:'The request could not be completed.'});else res.end();}
  });
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
